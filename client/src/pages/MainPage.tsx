@@ -125,31 +125,7 @@ export default function MainPage() {
   const products = getSafeProducts(rawProducts, prodLoading);
 
   useEffect(() => {
-    if (!settingsData?.data) return;
-    const {
-      offDays = [],
-      openingTime = "00:00",
-      closingTime = "23:59",
-      businessName = "Cafe",
-    } = settingsData.data;
-    const now = new Date();
-    const dayName = now.toLocaleDateString("en-US", { weekday: "long" });
-    if (offDays.includes(dayName)) {
-      setIsClosed(true);
-      setClosedMessage(`${businessName} is closed today (${dayName})`);
-      return;
-    }
-    const [openHour, openMinute] = openingTime.split(":").map(Number);
-    const [closeHour, closeMinute] = closingTime.split(":").map(Number);
-    const openTime = new Date();
-    openTime.setHours(openHour, openMinute, 0, 0);
-    const closeTime = new Date();
-    closeTime.setHours(closeHour, closeMinute, 0, 0);
-    if (now < openTime || now > closeTime) {
-      setIsClosed(true);
-      setClosedMessage(`${businessName} is closed now. Open hours: ${formatAMPM(openingTime)} - ${formatAMPM(closingTime)}`);
-      return;
-    }
+    // Make the cafe open 24/7
     setIsClosed(false);
     setClosedMessage("");
   }, [settingsData]);

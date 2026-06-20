@@ -134,15 +134,23 @@ export default function Login() {
 
           {/* Override removed */}
 
-          <div className="flex justify-between items-center pt-8 border-t-2 border-deep-black/10">
+          <div className="flex flex-col gap-4 pt-8 border-t-2 border-deep-black/10">
+            <div className="flex justify-between items-center">
+              <Link 
+                to="/" 
+                className="font-black text-sm text-deep-black hover:text-golden-yellow uppercase italic tracking-tighter flex items-center gap-1 group"
+              >
+                <span className="text-golden-yellow group-hover:pr-2 transition-all">←</span> RETURN_TO_HOME
+              </Link>
+              <Link to="/register" className="font-black text-sm text-deep-black hover:text-golden-yellow uppercase italic tracking-tighter flex items-center gap-1 group">
+                New Crew Member? <span className="text-golden-yellow group-hover:pl-2 transition-all">→</span>
+              </Link>
+            </div>
             <Link 
-              to="/" 
-              className="font-black text-sm text-deep-black hover:text-golden-yellow uppercase italic tracking-tighter flex items-center gap-1 group"
+              to="/self-order/1" 
+              className="w-full text-center font-black text-lg text-deep-black hover:text-golden-yellow uppercase italic tracking-tighter flex items-center justify-center gap-2 border-2 border-deep-black p-4 hover:bg-golden-yellow/10 transition-all"
             >
-              <span className="text-golden-yellow group-hover:pr-2 transition-all">←</span> RETURN_TO_HOME
-            </Link>
-            <Link to="/register" className="font-black text-sm text-deep-black hover:text-golden-yellow uppercase italic tracking-tighter flex items-center gap-1 group">
-              New Crew Member? <span className="text-golden-yellow group-hover:pl-2 transition-all">→</span>
+              <span className="text-2xl">🍽️</span> SELF_ORDER_KIOSK
             </Link>
           </div>
         </div>
