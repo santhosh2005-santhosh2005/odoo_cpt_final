@@ -40,6 +40,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL || "http://localhost:5173",
   // Render.com production
   "https://odoo-cpt-final.onrender.com",
+  "https://odoo-cpt-final-1.onrender.com",
 ];
 
 app.use(
