@@ -77,6 +77,10 @@ export const io = new Server(server, {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
+// Serve React App (client)
+const clientDistPath = path.join(__dirname, "../../client/dist");
+app.use(express.static(clientDistPath));
+
 // --- Socket.IO Realtime Handling ---
 io.on("connection", (socket) => {
   console.log("🔌 User connected:", socket.id);
@@ -131,6 +135,16 @@ app.use("/api/self-ordering-settings", selfOrderingSettingsRoutes);
 // Test Error Route
 app.get("/error", (req: Request) => {
   throw new Error("Test error!");
+});
+
+// For React Router (SPA fallback)
+app.get("*", (req: Request, res: Response) => {
+  // If it's an API route, don't serve index.html
+  if (req.path.startsWith("/api") || req.path.startsWith("/socket.io")) {
+    return res.status(404).json({ success: false, message: "Route not found" });
+  }
+  // Otherwise, serve the index.html from client dist
+  res.sendFile(path.join(clientDistPath, "index.html"));
 });
 
 // 404 Route Handler (must be after all routes)
