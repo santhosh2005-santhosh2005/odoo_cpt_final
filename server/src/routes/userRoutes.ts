@@ -15,6 +15,11 @@ import {
   getPendingUsers,
   googleLogin,
 } from "../controllers/user.controller";
+import {
+  generateStaffId,
+  getAllStaffIds,
+  deleteStaffId,
+} from "../controllers/staffId.controller";
 import { authMiddleware, adminMiddleware } from "../middleware/authMiddleware";
 
 const router = Router();
@@ -35,6 +40,11 @@ router.delete("/staff/:id", authMiddleware, adminMiddleware, deleteStaff);
 router.get("/pending", authMiddleware, adminMiddleware, getPendingUsers);
 router.patch("/approve/:id", authMiddleware, adminMiddleware, approveUser);
 router.delete("/deny/:id", authMiddleware, adminMiddleware, denyUser);
+
+// Staff ID Management (Admin only)
+router.post("/staff-ids/generate", authMiddleware, adminMiddleware, generateStaffId);
+router.get("/staff-ids", authMiddleware, adminMiddleware, getAllStaffIds);
+router.delete("/staff-ids/:id", authMiddleware, adminMiddleware, deleteStaffId);
 
 router.get("/profile", authMiddleware, getUserProfile);
 router.put("/profile", authMiddleware, updateUserProfile);

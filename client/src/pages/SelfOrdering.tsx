@@ -35,6 +35,7 @@ import {
 import { toast } from "react-hot-toast";
 import { useGetPromotionsQuery, useValidateCouponMutation } from "@/services/couponApi";
 import { Html5Qrcode } from "html5-qrcode";
+import { useGetSettingsQuery } from "@/services/SettingsApi";
 
 type Step = "floor" | "table" | "menu" | "payment" | "status";
 
@@ -58,28 +59,70 @@ export default function SelfOrdering() {
   const qrRegionId = "qr-reader-element";
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
 
+  // Checkout Payment QR Modal State
+  const [showPaymentQrModal, setShowPaymentQrModal] = useState(false);
+  const [paymentTimer, setPaymentTimer] = useState(150); // 2m 30s = 150s
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
+
   const startScanner = () => {
     setIsScanning(true);
     setTimeout(() => {
       try {
         const html5QrCode = new Html5Qrcode(qrRegionId);
         html5QrCodeRef.current = html5QrCode;
-        html5QrCode.start(
-          { facingMode: "environment" },
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-          },
-          (decodedText) => {
-            handleQrSuccess(decodedText);
-          },
-          (errorMessage) => {
-            // Suppress verbose scanner matching errors
+
+        const config = {
+          fps: 10,
+          qrbox: (width: number, height: number) => {
+            const size = Math.min(width, height) * 0.7;
+            return { width: Math.max(150, Math.min(250, size)), height: Math.max(150, Math.min(250, size)) };
           }
-        ).catch(err => {
-          console.error("Scanner failed to start:", err);
-          toast.error("Failed to start camera. Verify permissions.");
-          setIsScanning(false);
+        };
+
+        const onSuccess = (decodedText: string) => {
+          handleQrSuccess(decodedText);
+        };
+
+        const onError = () => {
+          // Suppress verbose matching errors
+        };
+
+        // Query device cameras for maximum compatibility
+        Html5Qrcode.getCameras().then(devices => {
+          if (devices && devices.length > 0) {
+            // Find back/rear camera
+            const backCamera = devices.find(device => 
+              device.label.toLowerCase().includes("back") || 
+              device.label.toLowerCase().includes("environment") ||
+              device.label.toLowerCase().includes("rear")
+            );
+            const cameraId = backCamera ? backCamera.id : devices[0].id;
+            
+            html5QrCode.start(cameraId, config, onSuccess, onError).catch(err => {
+              console.error("Failed starting with specific camera. Trying facingMode:", err);
+              html5QrCode.start({ facingMode: "environment" }, config, onSuccess, onError).catch(() => {
+                html5QrCode.start({ facingMode: "user" }, config, onSuccess, onError).catch(e => {
+                  console.error("Failed all camera start methods:", e);
+                  toast.error("Could not access camera. Try uploading an image of the QR code.");
+                });
+              });
+            });
+          } else {
+            html5QrCode.start({ facingMode: "environment" }, config, onSuccess, onError).catch(() => {
+              html5QrCode.start({ facingMode: "user" }, config, onSuccess, onError).catch(e => {
+                console.error("Failed all camera start methods:", e);
+                toast.error("Could not access camera. Try uploading an image of the QR code.");
+              });
+            });
+          }
+        }).catch(() => {
+          html5QrCode.start({ facingMode: "environment" }, config, onSuccess, onError).catch(() => {
+            html5QrCode.start({ facingMode: "user" }, config, onSuccess, onError).catch(e => {
+              console.error("Failed all camera start methods:", e);
+              toast.error("Could not access camera. Try uploading an image of the QR code.");
+            });
+          });
         });
       } catch (err) {
         console.error("Scanner instantiation error:", err);
@@ -99,6 +142,36 @@ export default function SelfOrdering() {
       });
     } else {
       setIsScanning(false);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Create a temporary element for decoding to prevent camera interference
+    const tempId = "temp-qr-file-reader";
+    let tempDiv = document.getElementById(tempId);
+    if (!tempDiv) {
+      tempDiv = document.createElement("div");
+      tempDiv.id = tempId;
+      tempDiv.style.display = "none";
+      document.body.appendChild(tempDiv);
+    }
+
+    const toastId = toast.loading("Scanning uploaded image...");
+    try {
+      const tempScanner = new Html5Qrcode(tempId);
+      const decodedText = await tempScanner.scanFile(file, false);
+      toast.dismiss(toastId);
+      handleQrSuccess(decodedText);
+      tempScanner.clear();
+      tempDiv.remove();
+    } catch (err) {
+      toast.dismiss(toastId);
+      console.error("File QR scan error:", err);
+      toast.error("Could not detect any QR code in this image.");
+      tempDiv.remove();
     }
   };
 
@@ -157,6 +230,37 @@ export default function SelfOrdering() {
   const { data: promotionsData } = useGetPromotionsQuery();
   const [validateCoupon] = useValidateCouponMutation();
   const activePromotions = (promotionsData?.data || []).filter((p: any) => p.isActive);
+
+  // Fetch business settings for UPI payment
+  const { data: settingsResponse } = useGetSettingsQuery({});
+  const settings = settingsResponse?.data || settingsResponse;
+  const upiId = settings?.upiId || "charanb9880@oksbi";
+  const businessName = settings?.businessName || "Odoo POS Cafe";
+
+  // Countdown timer for checkout payment QR code
+  useEffect(() => {
+    let timerInterval: any;
+    if (showPaymentQrModal && paymentTimer > 0) {
+      timerInterval = setInterval(() => {
+        setPaymentTimer((prev) => {
+          if (prev <= 1) {
+            clearInterval(timerInterval);
+            setShowPaymentQrModal(false);
+            toast.error("Payment session expired. Please try again.");
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timerInterval);
+  }, [showPaymentQrModal, paymentTimer]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
 
   // ── MODIFY RECENT ORDER STATE ──────────────────────────────────────────
   const [modificationCountdown, setModificationCountdown] = useState<number | null>(null);
@@ -635,6 +739,8 @@ export default function SelfOrdering() {
       setStep("status");
       setCart([]);
       setIsModifying(false);
+      setShowPaymentQrModal(false);
+      setSelectedPaymentMethod(null);
     } catch (err) {
       toast.error("Failed to place order");
     }
@@ -1041,7 +1147,15 @@ export default function SelfOrdering() {
                ].map((method) => (
                  <Card 
                   key={method.id}
-                  onClick={() => handlePlaceOrder(method.id)}
+                  onClick={() => {
+                    if (method.id === "upi" || method.id === "card" || method.id === "digital") {
+                      setSelectedPaymentMethod(method.id);
+                      setPaymentTimer(150); // 2 mins 30 secs
+                      setShowPaymentQrModal(true);
+                    } else {
+                      handlePlaceOrder(method.id);
+                    }
+                  }}
                   className="cursor-pointer bg-white border-4 border-deep-black p-8 rounded-none shadow-[8px_8px_0px_0px_#000] hover:bg-golden-yellow hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all group"
                  >
                    <div className="flex items-center gap-6">
@@ -1204,12 +1318,108 @@ export default function SelfOrdering() {
               </div>
             </div>
 
+            {/* QR File Upload Fallback */}
+            <div className="mt-6 border-t-2 border-deep-black/10 pt-6">
+              <label className="block text-center cursor-pointer bg-white text-deep-black border-2 border-deep-black hover:bg-golden-yellow p-4 font-black uppercase italic shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:translate-x-0.5 active:shadow-none transition-all text-xs">
+                <span>📁 Upload QR Image</span>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleFileChange} 
+                  className="hidden" 
+                />
+              </label>
+            </div>
+
             <button
               onClick={stopScanner}
               className="w-full mt-6 bg-deep-black text-warm-white py-4 font-black uppercase hover:bg-red-500 hover:text-white transition-colors cursor-pointer"
             >
               Cancel Scanning
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Payment QR Modal */}
+      {showPaymentQrModal && selectedPaymentMethod && (
+        <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-md">
+          <div className="bg-white border-4 border-deep-black shadow-[16px_16px_0px_0px_#F5B400] max-w-md w-full p-8 relative rounded-none text-deep-black">
+            <button
+              onClick={() => setShowPaymentQrModal(false)}
+              className="absolute top-4 right-4 w-10 h-10 border-2 border-deep-black flex items-center justify-center bg-red-500 text-white hover:bg-red-600 transition-colors cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="text-center space-y-4 mb-6">
+              <span className="bg-golden-yellow text-deep-black px-3 py-1 font-mono text-[8px] font-black uppercase tracking-widest animate-pulse">
+                Payment Verification
+              </span>
+              <h3 className="text-3xl font-black italic uppercase tracking-tighter">
+                {selectedPaymentMethod === "upi" ? "UPI QR Transfer" : selectedPaymentMethod === "card" ? "Card Checkout QR" : "Odoo Wallet QR"}
+              </h3>
+              
+              {/* Pulsing Timer */}
+              <div className="bg-deep-black text-white p-4 border-2 border-deep-black inline-flex items-center gap-3">
+                <Clock size={18} className="text-golden-yellow animate-spin" style={{ animationDuration: '4s' }} />
+                <span className="font-mono text-xl font-black tracking-widest text-golden-yellow animate-pulse">
+                  {formatTime(paymentTimer)}
+                </span>
+              </div>
+              
+              <p className="font-mono text-[10px] text-gray-500 uppercase tracking-widest">
+                Scan code below to pay <span className="font-bold text-deep-black">INR {finalTotal.toFixed(2)}</span>
+              </p>
+            </div>
+
+            {/* Dynamic QR Code Display */}
+            <div className="border-4 border-deep-black bg-white relative overflow-hidden aspect-square flex items-center justify-center p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]">
+              <img 
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
+                  selectedPaymentMethod === "upi" 
+                    ? `upi://pay?pa=${upiId}&pn=${encodeURIComponent(businessName)}&am=${finalTotal.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Table ${selectedTable?.number} Self-Order`)}`
+                    : `https://checkout.odoopos.com/pay/${selectedPaymentMethod}?amount=${finalTotal.toFixed(2)}&table=${selectedTable?.number}`
+                )}`} 
+                alt="Payment QR Code" 
+                className="w-full h-full object-contain"
+              />
+            </div>
+
+            <div className="space-y-4 mt-6">
+              <div className="flex justify-between items-center text-xs font-mono uppercase bg-gray-50 p-3 border-2 border-deep-black">
+                <span className="text-gray-400">Total Amount:</span>
+                <span className="font-black text-sm">INR {finalTotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs font-mono uppercase bg-gray-50 p-3 border-2 border-deep-black">
+                <span className="text-gray-400">Destination:</span>
+                <span className="font-black truncate max-w-[200px]">{selectedPaymentMethod === "upi" ? upiId : "Odoo Secure POS"}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-4 mt-6">
+              <button
+                onClick={() => setShowPaymentQrModal(false)}
+                className="flex-1 py-4 border-2 border-deep-black font-black uppercase hover:bg-gray-100 transition-colors cursor-pointer text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setIsVerifyingPayment(true);
+                  toast.loading("Verifying payment...", { id: "payment-verify-toast" });
+                  // Simulate 1.5s delay to make it feel extremely premium
+                  await new Promise(resolve => setTimeout(resolve, 1500));
+                  toast.dismiss("payment-verify-toast");
+                  setIsVerifyingPayment(false);
+                  handlePlaceOrder(selectedPaymentMethod);
+                }}
+                disabled={isVerifyingPayment}
+                className="flex-1 bg-green-500 text-white py-4 border-2 border-deep-black font-black uppercase hover:bg-green-600 transition-colors cursor-pointer text-xs shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:translate-x-0.5 active:shadow-none flex items-center justify-center gap-2"
+              >
+                {isVerifyingPayment ? "Verifying..." : "I Have Paid"}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { User } from "../models/User";
+import { StaffId } from "../models/StaffId";
 import { AuthRequest } from "../middleware/authMiddleware";
 
 // -------------------- Super Admin --------------------
@@ -36,19 +37,43 @@ export const createSuperAdmin = async (req: Request, res: Response) => {
 // -------------------- Register User --------------------
 export const registerUser = async (req: Request, res: Response) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, staffId } = req.body;
 
     const existing = await User.findOne({ email });
     if (existing)
       return res.status(400).json({ message: "Email already registered" });
+
+    // Validate staff ID for non-admin roles
+    const isAdmin = role === "admin";
+    if (!isAdmin && ["cashier", "waiter"].includes(role)) {
+      if (!staffId) {
+        return res.status(400).json({ message: "Staff ID is required" });
+      }
+
+      // Check if staff ID is valid
+      const staffIdDoc = await StaffId.findOne({ id: staffId.toUpperCase() });
+      if (!staffIdDoc) {
+        return res.status(400).json({ message: "Invalid staff ID" });
+      }
+      if (staffIdDoc.isUsed) {
+        return res.status(400).json({ message: "This staff ID has already been used" });
+      }
+      if (staffIdDoc.role !== role) {
+        return res.status(400).json({ message: `This staff ID is for ${staffIdDoc.role} only` });
+      }
+
+      // Mark the ID as used
+      staffIdDoc.isUsed = true;
+      await staffIdDoc.save();
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const userRole = role || "waiter"; // Default to waiter if not specified for safety
     const roleLower = userRole.toLowerCase();
     
-    // Customers and admins don't need manual approval, staff/cashiers do
-    const isApproved = userRole === "admin" || userRole === "customer";
+    // Customers and admins don't need manual approval, staff/cashiers do (and are auto-approved now
+    const isApproved = userRole === "admin" || userRole === "customer" || ["cashier", "waiter"].includes(userRole);
     
     const newUser = new User({
       name,

@@ -56,6 +56,23 @@ export const userApi = createApi({
         method: "DELETE",
       }),
     }),
+    // Staff ID endpoints
+    generateStaffId: builder.mutation<any, { role: string }>({
+      query: (data) => ({
+        url: "/staff-ids/generate",
+        method: "POST",
+        body: data,
+      }),
+    }),
+    getAllStaffIds: builder.query<any, void>({
+      query: () => "/staff-ids",
+    }),
+    deleteStaffId: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/staff-ids/${id}`,
+        method: "DELETE",
+      }),
+    }),
   }),
 });
 
@@ -66,4 +83,7 @@ export const {
   useGetPendingUsersQuery,
   useApproveUserMutation,
   useDenyUserMutation,
+  useGenerateStaffIdMutation,
+  useGetAllStaffIdsQuery,
+  useDeleteStaffIdMutation,
 } = userApi;
