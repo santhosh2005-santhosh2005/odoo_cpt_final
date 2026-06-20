@@ -11,6 +11,7 @@ import jwt from "jsonwebtoken";
 import { calculateOrderPriority } from "../utils/priority";
 import { calculateWaitTime } from "../utils/waitTimer";
 import { User } from "../models/User";
+import { GuestCustomer } from "../models/GuestCustomer";
 
 export const getTodayOrderSummaryController = async (
   req: Request,
@@ -26,7 +27,7 @@ export const getTodayOrderSummaryController = async (
 
 export const createOrder = async (req: AuthRequest, res: Response) => {
   try {
-    const { items, paymentMethod, tableId, discountPercent, taxRate, sessionId, isCustomerOrder, discountAmount, couponCode, appliedPromotions, customerId, employeeId, subtotal, tax, discount, totalAmount } =
+    const { items, paymentMethod, tableId, discountPercent, taxRate, sessionId, isCustomerOrder, discountAmount, couponCode, appliedPromotions, customerId, employeeId, subtotal, tax, discount, totalAmount, guestCustomerId } =
       req.body;
     const waiterId = (req as any).user?.id;
     const isCustomer = isCustomerOrder || false;
@@ -105,7 +106,8 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       subtotal: subtotal || 0,
       tax: tax || 0,
       discount: discount || 0,
-      totalAmount: totalAmount || totalPrice
+      totalAmount: totalAmount || totalPrice,
+      guestCustomerId: guestCustomerId || undefined,
     });
 
     // ── INITIAL PRIORITY & WAIT-TIME CALCULATION ────────────────────────────
@@ -135,6 +137,14 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     
     const summary = await getTodayOrderSummary();
     io.emit("orderSummaryUpdate", summary);
+
+    // Increment ordersPlaced counter on GuestCustomer (async, non-blocking)
+    if (guestCustomerId) {
+      GuestCustomer.findByIdAndUpdate(guestCustomerId, { $inc: { ordersPlaced: 1 } }).catch((e: any) =>
+        console.error("[GuestCustomer] ordersPlaced increment failed:", e)
+      );
+    }
+
     return res.status(201).json({ success: true, data: order });
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message });

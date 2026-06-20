@@ -14,6 +14,9 @@ import {
   denyUser,
   getPendingUsers,
   googleLogin,
+  requestPasswordReset,
+  verifyPasswordResetOtp,
+  resetPassword,
 } from "../controllers/user.controller";
 import {
   generateStaffId,
@@ -30,6 +33,9 @@ router.get("/superadmin", createSuperAdmin);
 router.post("/register", registerUser);
 router.post("/login", loginUser);
 router.post("/google-login", googleLogin);
+router.post("/forgot-password", requestPasswordReset);
+router.post("/verify-otp", verifyPasswordResetOtp);
+router.post("/reset-password", resetPassword);
 
 // Admin Management
 router.get("/staff", authMiddleware, adminMiddleware, getStaffs);
