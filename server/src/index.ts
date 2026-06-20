@@ -38,6 +38,8 @@ const allowedOrigins = [
   "http://localhost:5174",
   "http://localhost:5175",
   process.env.FRONTEND_URL || "http://localhost:5173",
+  // Render.com production
+  "https://odoo-cpt-final.onrender.com",
 ];
 
 app.use(
@@ -139,14 +141,21 @@ app.get("/error", (req: Request) => {
   throw new Error("Test error!");
 });
 
+import fs from "fs";
+
 // For React Router (SPA fallback)
 app.use((req: Request, res: Response, next: NextFunction) => {
   // If it's an API route, don't serve index.html
   if (req.path.startsWith("/api") || req.path.startsWith("/socket.io")) {
     return next();
   }
-  // Otherwise, serve the index.html from client dist
-  res.sendFile(path.join(clientDistPath, "index.html"));
+  // Only serve React app if client/dist/index.html actually exists
+  const indexFile = path.join(clientDistPath, "index.html");
+  if (fs.existsSync(indexFile)) {
+    return res.sendFile(indexFile);
+  }
+  // API-only mode — client is hosted separately
+  return next();
 });
 
 // 404 Route Handler (must be after all routes)
