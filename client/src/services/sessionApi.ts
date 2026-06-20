@@ -38,6 +38,25 @@ export const sessionApi = createApi({
       }),
       invalidatesTags: ["Session"],
     }),
+    getSessionSummary: builder.query<any, string>({
+      query: (id) => `/summary/${id}`,
+      providesTags: ["Session"],
+    }),
+    updateSession: builder.mutation<any, { id: string; body: any }>({
+      query: ({ id, body }) => ({
+        url: `/${id}`,
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: ["Session"],
+    }),
+    deleteSession: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Session"],
+    }),
   }),
 });
 
@@ -46,4 +65,7 @@ export const {
   useGetActiveSessionQuery,
   useOpenSessionMutation,
   useCloseSessionMutation,
+  useGetSessionSummaryQuery,
+  useUpdateSessionMutation,
+  useDeleteSessionMutation,
 } = sessionApi;

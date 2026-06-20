@@ -41,24 +41,6 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-warm-white flex flex-col">
-      {/* 🟡 Accent Top Panel */}
-      <div className="w-full bg-golden-yellow text-deep-black p-12 flex flex-col border-b-8 border-deep-black">
-        <div>
-          <div className="bg-deep-black text-white p-4 inline-block">
-            <img src="/app/logo.png" alt="Logo" className="w-16 h-16 invert" />
-          </div>
-          <h1 className="text-5xl md:text-7xl leading-[0.85] italic tracking-tighter mt-6">
-            JOIN THE<br />
-            <span className="bg-deep-black text-golden-yellow px-2 inline-block mt-2">ECOSYSTEM</span>
-          </h1>
-          <p className="font-mono text-[10px] tracking-widest uppercase max-w-xs font-black mt-6">
-            [RECRUITMENT_PHASE_ACTIVE]<br />
-            Security level: 4<br />
-            Role Assignment Required
-          </p>
-        </div>
-      </div>
-
       {/* ⚪️ Registration form area */}
       <div className="flex-1 p-8 md:p-20 flex items-center justify-center">
         <div className="w-full max-w-lg space-y-10">
@@ -146,6 +128,24 @@ export default function Register() {
               Already Registered? <span className="group-hover:pl-2 transition-all">←</span>
             </Link>
           </div>
+        </div>
+      </div>
+
+      {/* 🟡 Accent Bottom Panel (Footer) */}
+      <div className="w-full bg-golden-yellow text-deep-black p-12 flex flex-col border-t-8 border-deep-black mt-auto">
+        <div>
+          <div className="bg-deep-black text-white p-4 inline-block">
+            <img src="/app/logo.png" alt="Logo" className="w-16 h-16 invert" />
+          </div>
+          <h1 className="text-5xl md:text-7xl leading-[0.85] italic tracking-tighter mt-6">
+            JOIN THE<br />
+            <span className="bg-deep-black text-golden-yellow px-2 inline-block mt-2">ECOSYSTEM</span>
+          </h1>
+          <p className="font-mono text-[10px] tracking-widest uppercase max-w-xs font-black mt-6">
+            [RECRUITMENT_PHASE_ACTIVE]<br />
+            Security level: 4<br />
+            Role Assignment Required
+          </p>
         </div>
       </div>
     </div>

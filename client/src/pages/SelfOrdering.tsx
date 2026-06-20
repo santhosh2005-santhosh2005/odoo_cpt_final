@@ -186,22 +186,35 @@ export default function SelfOrdering() {
     } else if (trimmed.includes("/self-order/")) {
       const parts = trimmed.split("/self-order/");
       extractedTableNumber = parts[parts.length - 1].split("?")[0].split("#")[0].trim();
-    } else if (/^[a-fA-F0-9]{32}$/.test(trimmed)) {
-      // 32-character hex string is treated as a token
+    } else if (/^[a-fA-F0-9]{24,32}$/.test(trimmed)) {
       extractedToken = trimmed;
     } else if (/^\d+$/.test(trimmed)) {
-      // simple numeric string is treated as a table number
       extractedTableNumber = trimmed;
     }
 
     if (extractedToken) {
       stopScanner();
       toast.success("Table scanned successfully!");
+      // Navigate to the token route — the useEffect will auto-select the table
       navigate(`/s/${extractedToken}`);
     } else if (extractedTableNumber) {
-      stopScanner();
-      toast.success("Table scanned successfully!");
-      navigate(`/self-order/${extractedTableNumber}`);
+      // Try to find the table directly in already-loaded tables list first
+      const currentTables = (tablesData as any)?.data || [];
+      const currentFloors = (floorsData as any)?.data || [];
+      const matchedTable = currentTables.find((t: any) => t.number.toString() === extractedTableNumber);
+      if (matchedTable && currentFloors.length > 0) {
+        const floorId = matchedTable.floor?._id || matchedTable.floor;
+        const matchedFloor = currentFloors.find((f: any) => f._id?.toString() === floorId?.toString());
+        if (matchedFloor) setSelectedFloor(matchedFloor);
+        setSelectedTable(matchedTable);
+        stopScanner();
+        toast.success(`Table ${extractedTableNumber} selected!`);
+        setStep("menu");
+      } else {
+        stopScanner();
+        toast.success("Table scanned successfully!");
+        navigate(`/self-order/${extractedTableNumber}`);
+      }
     } else {
       toast.error("Invalid QR code. Please scan a table QR.");
     }
@@ -237,8 +250,8 @@ export default function SelfOrdering() {
   }, [activeOrder]);
 
   const { user } = useSelector((state: RootState) => state.user);
-  const { data: floorsData } = useGetFloorsQuery();
-  const { data: tablesData } = useGetTablesQuery();
+  const { data: floorsData, isLoading: floorsLoading } = useGetFloorsQuery();
+  const { data: tablesData, isLoading: tablesLoading } = useGetTablesQuery();
   const { data: categories } = useGetCategoriesQuery();
   const { data: productsResponse } = useGetProductsQuery({ limit: 100 });
   const [createOrder] = useCreateOrderMutation();
@@ -296,40 +309,43 @@ export default function SelfOrdering() {
   }, [modificationCountdown]);
 
   const { token, tableNumber } = useParams<{ token?: string; tableNumber?: string }>();
-  const { data: tableByTokenData } = useGetTableByTokenQuery(token || "", { skip: !token });
+  const { data: tableByTokenData, isLoading: tokenTableLoading, isFetching: tokenTableFetching } = useGetTableByTokenQuery(token || "", { skip: !token });
   const floors = (floorsData as any)?.data || [];
   const allTables = (tablesData as any)?.data || [];
   const products = productsResponse?.data || [];
 
-  // Auto-select table from URL token if available
-  useEffect(() => {
-    if (tableByTokenData?.data && floors.length > 0) {
-      const table = tableByTokenData.data;
-      // Find the floor for this table
-      const floorId = table.floor?._id || table.floor;
-      const floor = floors.find((f: any) => f._id === floorId);
-      if (floor) {
-        setSelectedFloor(floor);
-      }
-      setSelectedTable(table);
-      setStep("menu"); // Skip directly to menu if table is auto-selected
-    }
-  }, [tableByTokenData, floors]);
+  // Whether we are in a URL-param-driven auto-select scenario
+  const isAutoSelectMode = !!(token || tableNumber);
+  // True while any required data is still loading for auto-select
+  const isAutoSelectLoading = isAutoSelectMode && (
+    floorsLoading || tablesLoading ||
+    (token ? (tokenTableLoading || tokenTableFetching) : false)
+  );
 
-  // Auto-select table from URL tableNumber if available
+  // Auto-select table from URL token — runs whenever token data OR floors update
   useEffect(() => {
-    if (tableNumber && allTables.length > 0 && floors.length > 0) {
-      const table = allTables.find((t: any) => t.number.toString() === tableNumber.toString());
-      if (table) {
-        const floorId = table.floor?._id || table.floor;
-        const floor = floors.find((f: any) => f._id === floorId);
-        if (floor) {
-          setSelectedFloor(floor);
-        }
-        setSelectedTable(table);
-        setStep("menu"); // Skip directly to menu if table is auto-selected
-      }
-    }
+    if (!token) return;
+    if (!tableByTokenData?.data) return;
+    if (floors.length === 0) return; // Wait until floors are loaded
+    const table = tableByTokenData.data;
+    const floorId = table.floor?._id || table.floor;
+    const floor = floors.find((f: any) => f._id?.toString() === floorId?.toString());
+    if (floor) setSelectedFloor(floor);
+    setSelectedTable(table);
+    setStep("menu");
+  }, [token, tableByTokenData, floors]);
+
+  // Auto-select table from URL tableNumber — runs whenever tables OR floors update
+  useEffect(() => {
+    if (!tableNumber) return;
+    if (allTables.length === 0 || floors.length === 0) return; // Wait until both loaded
+    const table = allTables.find((t: any) => t.number.toString() === tableNumber.toString());
+    if (!table) return;
+    const floorId = table.floor?._id || table.floor;
+    const floor = floors.find((f: any) => f._id?.toString() === floorId?.toString());
+    if (floor) setSelectedFloor(floor);
+    setSelectedTable(table);
+    setStep("menu");
   }, [tableNumber, allTables, floors]);
 
   const filteredTables = allTables.filter((t: any) => {
@@ -803,6 +819,11 @@ export default function SelfOrdering() {
           <p className="font-mono text-[10px] text-golden-yellow uppercase tracking-[0.3em]">Session_User: {user?.name || "GUEST"}</p>
           <h1 className="text-6xl font-black italic tracking-tighter uppercase">{title}</h1>
           {subtitle && <p className="font-mono text-xs text-gray-400 uppercase tracking-widest mt-2">{subtitle}</p>}
+          {selectedTable && (
+            <div className="inline-block mt-3 bg-golden-yellow text-deep-black px-3 py-1 font-mono text-[10px] font-black uppercase tracking-wider">
+              📍 Table {selectedTable.number} {selectedFloor ? `(${selectedFloor.name})` : ""}
+            </div>
+          )}
         </div>
         <button 
           onClick={() => navigate("/login")}
@@ -883,7 +904,19 @@ export default function SelfOrdering() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] selection:bg-golden-yellow selection:text-deep-black">
-      
+
+      {/* AUTO-SELECT LOADING SCREEN — shown when navigating via QR token/tableNumber */}
+      {isAutoSelectLoading && (
+        <div className="fixed inset-0 bg-deep-black z-[200] flex flex-col items-center justify-center gap-8">
+          <div className="w-20 h-20 border-4 border-golden-yellow border-t-transparent rounded-full animate-spin" />
+          <div className="text-center space-y-3">
+            <p className="font-mono text-[10px] text-golden-yellow uppercase tracking-[0.4em] animate-pulse">QR_Detected</p>
+            <h2 className="text-4xl font-black italic tracking-tighter text-white uppercase">Loading Table...</h2>
+            <p className="font-mono text-[10px] text-gray-500 uppercase tracking-widest">Fetching table details from server</p>
+          </div>
+        </div>
+      )}
+
       {/* STEP 1: FLOOR SELECTION */}
       {(step === "floor" || step === "table") && (
         <>
@@ -970,6 +1003,11 @@ export default function SelfOrdering() {
                <div className="space-y-1">
                   <p className="font-mono text-[10px] text-golden-yellow uppercase tracking-[0.3em]">System_User: {user?.name || "GUEST"}</p>
                   <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none">ODOO<br/>DIGITAL_MENU.</h1>
+                  {selectedTable && (
+                    <div className="inline-block mt-2 bg-golden-yellow text-deep-black px-3 py-1 font-mono text-[10px] font-black uppercase tracking-wider">
+                      📍 Table {selectedTable.number} {selectedFloor ? `(${selectedFloor.name})` : ""}
+                    </div>
+                  )}
                </div>
 
                <div className="flex items-center gap-6">

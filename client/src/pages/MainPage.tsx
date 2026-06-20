@@ -86,6 +86,8 @@ export default function MainPage() {
   const [closedMessage, setClosedMessage] = useState("");
   const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
   const [endingBalance, setEndingBalance] = useState(0);
+  const [isSummaryDialogOpen, setIsSummaryDialogOpen] = useState(false);
+  const [summaryData, setSummaryData] = useState<any>(null);
 
   const { data: settingsData, isLoading: settingsLoading } = useGetSettingsQuery({});
   const { data: activeData, isLoading: activeLoading } = useGetActiveSessionQuery();
@@ -142,10 +144,11 @@ export default function MainPage() {
   const handleCloseSession = async () => {
     if (!activeSession?._id) return;
     try {
-      await closeSession({ id: activeSession._id, endingBalance }).unwrap();
+      const res = await closeSession({ id: activeSession._id, endingBalance }).unwrap();
+      setSummaryData(res.summary);
       setIsCloseDialogOpen(false);
+      setIsSummaryDialogOpen(true);
       toast.success("Shift Closed Successfully!");
-      navigate("/dashboard/pos");
     } catch (err) {
       toast.error("Failed to close shift");
     }
@@ -317,6 +320,68 @@ export default function MainPage() {
               style={{ background: "#c0392b", color: CREAM, borderColor: "#e74c3c" }}
             >
               CONFIRM & CLOSE SHIFT
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── CLOSING SUMMARY DIALOG ── */}
+      <Dialog open={isSummaryDialogOpen} onOpenChange={setIsSummaryDialogOpen}>
+        <DialogContent className="max-w-md border-2 shadow-2xl rounded-none p-0" style={{ background: GREEN, borderColor: YELLOW }}>
+          <div className="p-6 border-b-2" style={{ borderColor: `${YELLOW}40`, background: GREEN_MID }}>
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-black uppercase tracking-tight flex items-center gap-3" style={{ color: CREAM }}>
+                <Scale style={{ color: YELLOW }} size={22} /> Closing Summary
+              </DialogTitle>
+              <DialogDescription className="font-mono text-xs uppercase tracking-widest mt-1" style={{ color: `${CREAM}60` }}>
+                Shift Report Summary
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="p-6 space-y-6 overflow-y-auto max-h-[350px] font-mono text-xs" style={{ color: CREAM }}>
+            <div className="flex justify-between items-center border-b border-white/10 pb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: `${CREAM}60` }}>Total Orders</span>
+              <span className="text-lg font-black" style={{ color: YELLOW }}>{summaryData?.orderCount ?? 0}</span>
+            </div>
+
+            <div className="flex justify-between items-center border-b border-white/10 pb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: `${CREAM}60` }}>Total Revenue</span>
+              <span className="text-lg font-black" style={{ color: YELLOW }}>INR {(summaryData?.totalSales ?? 0).toFixed(2)}</span>
+            </div>
+
+            <div className="flex justify-between items-center border-b border-white/10 pb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: `${CREAM}60` }}>Discounts Given</span>
+              <span className="text-lg font-black text-red-400">INR {(summaryData?.totalDiscounts ?? 0).toFixed(2)}</span>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <span className="text-[10px] font-black uppercase tracking-wider block mb-1" style={{ color: `${CREAM}60` }}>Payment Breakdown</span>
+              <div className="bg-white/5 p-4 border border-white/10 space-y-2">
+                {summaryData?.paymentBreakdown && Object.keys(summaryData.paymentBreakdown).length > 0 ? (
+                  Object.entries(summaryData.paymentBreakdown).map(([method, amount]) => (
+                    <div key={method} className="flex justify-between items-center text-[11px]">
+                      <span className="uppercase text-[9px] tracking-wider" style={{ color: `${CREAM}80` }}>{method}</span>
+                      <span className="font-bold">INR {Number(amount).toFixed(2)}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center text-[9px] italic text-gray-500">No payment data recorded</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 pt-0">
+            <button
+              onClick={() => {
+                setIsSummaryDialogOpen(false);
+                navigate("/dashboard/pos");
+              }}
+              className="w-full h-14 font-black uppercase tracking-widest text-base border-2 transition-all hover:opacity-90"
+              style={{ background: YELLOW, color: GREEN, borderColor: YELLOW }}
+            >
+              Done
             </button>
           </div>
         </DialogContent>

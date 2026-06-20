@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { User } from "../models/User";
+import { Session } from "../models/Session";
 import { StaffId } from "../models/StaffId";
 import { AuthRequest } from "../middleware/authMiddleware";
 
@@ -116,6 +117,19 @@ export const loginUser = async (req: Request, res: Response) => {
     const isMatch = await bcrypt.compare(password, user.passwordHash || "");
     if (!isMatch)
       return res.status(400).json({ message: "Invalid email or password" });
+
+    // Restrict cashier multi-login if another cashier has an active session
+    if (user.role === "cashier") {
+      const activeSession = await Session.findOne({ status: "open" });
+      if (activeSession) {
+        const activeCashierId = activeSession.cashier?.toString() || activeSession.user?.toString();
+        if (activeCashierId && activeCashierId !== user._id.toString()) {
+          return res.status(403).json({
+            message: "Another cashier has an active open session. They must close it before you can log in."
+          });
+        }
+      }
+    }
 
     const token = jwt.sign(
       { id: user._id, role: user.role },

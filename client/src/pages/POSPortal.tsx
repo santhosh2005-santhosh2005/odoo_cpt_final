@@ -29,6 +29,12 @@ export default function POSPortal() {
 
   const activeSession = activeData?.session;
   const lastSession = historyData?.data?.[0]; // Last history entry
+  const closedSessions = historyData?.data?.filter((s: any) => s.status === "closed") || [];
+  const lastClosedSession = closedSessions[0];
+  const lastClosingSalesAmount = lastClosedSession ? (lastClosedSession.totalSales || 0) : 0;
+  const lastOpenSessionDate = lastSession 
+    ? new Date(lastSession.startTime).toLocaleDateString() + " " + new Date(lastSession.startTime).toLocaleTimeString()
+    : "N/A";
 
   const handleOpenSession = async (balance: number = 0) => {
     try {
@@ -69,14 +75,14 @@ export default function POSPortal() {
                 }}
                 className="brutalist-button h-20 px-12 flex items-center gap-4 bg-golden-yellow text-deep-black"
              >
-                <CheckCircle2 size={24} /> CONTINUE_ACTIVE_SESSION
+                <CheckCircle2 size={24} /> Open Session
              </button>
           ) : (
              <button 
                 onClick={onInitializeShift}
                 className="brutalist-button h-20 px-12 flex items-center gap-4 bg-golden-yellow text-deep-black"
              >
-                <PlayCircle size={24} /> INITIALIZE_NEW_SHIFT
+                <PlayCircle size={24} /> Open Session
              </button>
           )}
       </div>
@@ -132,12 +138,18 @@ export default function POSPortal() {
                   </div>
                   <div className="space-y-8">
                       <div className="space-y-2">
-                           <p className="font-mono text-[10px] tracking-widest text-gray-500 uppercase">Previous_Cycle_Sales</p>
+                           <p className="font-mono text-[10px] tracking-widest text-gray-500 uppercase">Last Closing Sales Amount</p>
                            <p className="text-4xl font-black italic text-deep-black">
-                                {lastSession ? (lastSession.totalSales || 0).toFixed(2) : "0.00"}
+                                INR {lastClosingSalesAmount.toFixed(2)}
                            </p>
                       </div>
-                      <div className="pt-4 space-y-4 font-mono">
+                      <div className="space-y-2">
+                           <p className="font-mono text-[10px] tracking-widest text-gray-500 uppercase">Last Open Session Date</p>
+                           <p className="text-sm font-bold text-deep-black font-mono">
+                                {lastOpenSessionDate}
+                           </p>
+                      </div>
+                      <div className="pt-4 space-y-4 border-t-2 border-gray-100 font-mono">
                            <div className="flex justify-between items-center text-[10px]">
                                <span className="text-gray-400 uppercase">Log_Status</span>
                                <span className="bg-deep-black text-warm-white px-2 py-0.5 uppercase">
@@ -147,8 +159,8 @@ export default function POSPortal() {
                            <div className="flex justify-between items-center text-[10px]">
                                <span className="text-gray-400 uppercase">Head_Operator</span>
                                <span className="text-deep-black font-black uppercase italic">
-                                  {lastSession ? "Admin" : "---"}
-                               </span>
+                                  {lastSession ? (lastSession.cashier?.name || lastSession.user?.name || "Admin") : "---"}
+                                </span>
                            </div>
                       </div>
                   </div>

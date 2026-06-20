@@ -273,7 +273,7 @@ export const getEmployeesList = async (req: Request, res: Response) => {
  */
 export const getSessionsList = async (req: Request, res: Response) => {
   try {
-    const sessions = await Session.find().populate("user", "name").sort({ startTime: -1 });
+    const sessions = await Session.find().populate("user", "name").populate("cashier", "name").sort({ startTime: -1 });
     res.json({ success: true, data: sessions });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

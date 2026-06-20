@@ -14,19 +14,24 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useGetSessionsQuery } from "@/services/sessionApi";
+import { useGetSessionsQuery, useUpdateSessionMutation, useDeleteSessionMutation } from "@/services/sessionApi";
 import { useGetAllStaffQuery } from "@/services/staffService";
 import { useGetProductsQuery } from "@/services/productApi";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Download,
   FileSpreadsheet,
-  Filter
+  Filter,
+  Edit,
+  Trash2
 } from "lucide-react";
 
 import { generatePDF } from "@/components/GeneratePdf";
 import AdvancedAnalytics from "@/components/AdvancedAnalytics";
 import Swal from "sweetalert2";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/store";
+import { toast } from "react-hot-toast";
 
 interface OrderItem {
   product: { name: string };
@@ -53,6 +58,77 @@ interface StatusBreakdownItem {
 }
 
 const SummaryManagement = () => {
+  const { role } = useSelector((state: RootState) => state.user);
+  const [updateSession] = useUpdateSessionMutation();
+  const [deleteSession] = useDeleteSessionMutation();
+
+  const [selectedSession, setSelectedSession] = useState<any>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editCashier, setEditCashier] = useState("");
+  const [editStartTime, setEditStartTime] = useState("");
+  const [editEndTime, setEditEndTime] = useState("");
+  const [editStatus, setEditStatus] = useState("open");
+  const [editStartingBalance, setEditStartingBalance] = useState<number>(0);
+  const [editEndingBalance, setEditEndingBalance] = useState<number>(0);
+  const [editTotalSales, setEditTotalSales] = useState<number>(0);
+
+  const formatForDatetimeLocal = (dateString?: string | Date) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
+    const pad = (num: number) => String(num).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
+  const handleOpenEdit = (sess: any) => {
+    setSelectedSession(sess);
+    setEditCashier(sess.cashier?._id || sess.user?._id || "");
+    setEditStartTime(formatForDatetimeLocal(sess.startTime));
+    setEditEndTime(formatForDatetimeLocal(sess.endTime));
+    setEditStatus(sess.status || "open");
+    setEditStartingBalance(sess.startingBalance || 0);
+    setEditEndingBalance(sess.endingBalance || 0);
+    setEditTotalSales(sess.totalSales || 0);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveSession = async () => {
+    if (!selectedSession) return;
+    try {
+      const body: any = {
+        cashier: editCashier || undefined,
+        startTime: editStartTime ? new Date(editStartTime).toISOString() : undefined,
+        endTime: editEndTime ? new Date(editEndTime).toISOString() : null,
+        status: editStatus,
+        startingBalance: Number(editStartingBalance),
+        endingBalance: editStatus === "closed" ? Number(editEndingBalance) : undefined,
+        totalSales: Number(editTotalSales),
+      };
+
+      await updateSession({ id: selectedSession._id, body }).unwrap();
+      toast.success("Session updated successfully");
+      setIsEditModalOpen(false);
+      refetchSessions(); // Refresh session table
+    } catch (err: any) {
+      toast.error(err.data?.message || "Failed to update session");
+    }
+  };
+
+  const handleDeleteSession = async () => {
+    if (!selectedSession) return;
+    const confirmDelete = window.confirm("Are you sure you want to delete this session? This action cannot be undone.");
+    if (!confirmDelete) return;
+
+    try {
+      await deleteSession(selectedSession._id).unwrap();
+      toast.success("Session deleted successfully");
+      setIsEditModalOpen(false);
+      refetchSessions(); // Refresh session table
+    } catch (err: any) {
+      toast.error(err.data?.message || "Failed to delete session");
+    }
+  };
+
   const [status, setStatus] = useState<string>("all");
   const [search] = useState<string>("");
   const [startDate, setStartDate] = useState<string>(() => {
@@ -71,7 +147,7 @@ const SummaryManagement = () => {
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
 
   // --- API State ---
-  const { data: sessionsData } = useGetSessionsQuery();
+  const { data: sessionsData, refetch: refetchSessions } = useGetSessionsQuery();
   const { data: staffData } = useGetAllStaffQuery(undefined);
   const { data: productsData } = useGetProductsQuery();
 
@@ -390,6 +466,67 @@ const SummaryManagement = () => {
       {/* Advanced Insights Section */}
       <AdvancedAnalytics filter="monthly" />
 
+      {/* Session History & Shift Audits */}
+      <Card className="rounded-3xl border-none shadow-sm dark:bg-gray-800">
+        <CardHeader>
+          <CardTitle>Session History & Shift Audits</CardTitle>
+          <CardDescription>Review open/closed cashier sessions, starting/closing times, and total revenue.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="p-2 text-left">Cashier</th>
+                  <th className="p-2 text-left">Start Time</th>
+                  <th className="p-2 text-left">End Time</th>
+                  <th className="p-2 text-left">Status</th>
+                  <th className="p-2 text-left">Starting Balance</th>
+                  <th className="p-2 text-left">Closing Sales</th>
+                  <th className="p-2 text-left">Ending Balance</th>
+                  {role === "admin" && <th className="p-2 text-center">Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {sessionsData?.data && sessionsData.data.length > 0 ? (
+                  sessionsData.data.map((sess: any) => (
+                    <tr key={sess._id} className="border-b hover:bg-muted/50">
+                      <td className="p-2 font-bold">{sess.cashier?.name || sess.user?.name || "Operator"}</td>
+                      <td className="p-2 font-mono text-xs">{new Date(sess.startTime).toLocaleString("en-IN")}</td>
+                      <td className="p-2 font-mono text-xs">{sess.endTime ? new Date(sess.endTime).toLocaleString("en-IN") : "Active Session"}</td>
+                      <td className="p-2">
+                        <Badge variant={sess.status === "open" ? "default" : "secondary"}>
+                          {sess.status}
+                        </Badge>
+                      </td>
+                      <td className="p-2">INR {(sess.startingBalance || 0).toFixed(2)}</td>
+                      <td className="p-2 font-bold text-green-600">INR {(sess.totalSales || 0).toFixed(2)}</td>
+                      <td className="p-2">{sess.endingBalance !== undefined ? `INR ${sess.endingBalance.toFixed(2)}` : "-"}</td>
+                      {role === "admin" && (
+                        <td className="p-2 text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="p-1 hover:bg-muted"
+                            onClick={() => handleOpenEdit(sess)}
+                          >
+                            <Edit size={14} />
+                          </Button>
+                        </td>
+                      )}
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={role === "admin" ? 8 : 7} className="text-center py-4 text-muted-foreground italic">No session logs found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Details Dialog */}
       <Dialog open={openDetails} onOpenChange={setOpenDetails}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
@@ -467,6 +604,125 @@ const SummaryManagement = () => {
             >
               Export as PDF
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Session Edit Dialog */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Session</DialogTitle>
+            <DialogDescription>Modify Session Details & Shift Settings</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Operator */}
+            <div className="space-y-2">
+              <Label>Cashier / Operator</Label>
+              <select
+                value={editCashier}
+                onChange={(e) => setEditCashier(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md text-sm bg-background"
+              >
+                <option value="">Select Cashier</option>
+                {staffData?.staffs?.map((u: any) => (
+                  <option key={u._id} value={u._id}>
+                    {u.name} ({u.role})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Start Time */}
+            <div className="space-y-2">
+              <Label>Start Time</Label>
+              <Input
+                type="datetime-local"
+                value={editStartTime}
+                onChange={(e) => setEditStartTime(e.target.value)}
+              />
+            </div>
+
+            {/* End Time */}
+            <div className="space-y-2">
+              <Label>End Time</Label>
+              <Input
+                type="datetime-local"
+                value={editEndTime}
+                onChange={(e) => setEditEndTime(e.target.value)}
+              />
+            </div>
+
+            {/* Status */}
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <select
+                value={editStatus}
+                onChange={(e) => setEditStatus(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md text-sm bg-background"
+              >
+                <option value="open">Open</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+
+            {/* Starting Balance */}
+            <div className="space-y-2">
+              <Label>Starting Balance (INR)</Label>
+              <Input
+                type="number"
+                value={editStartingBalance}
+                onChange={(e) => setEditStartingBalance(Number(e.target.value))}
+              />
+            </div>
+
+            {/* Closing Sales */}
+            <div className="space-y-2">
+              <Label>Total Sales (INR)</Label>
+              <Input
+                type="number"
+                value={editTotalSales}
+                onChange={(e) => setEditTotalSales(Number(e.target.value))}
+              />
+            </div>
+
+            {/* Ending Balance */}
+            {editStatus === "closed" && (
+              <div className="space-y-2">
+                <Label>Ending Balance (INR)</Label>
+                <Input
+                  type="number"
+                  value={editEndingBalance}
+                  onChange={(e) => setEditEndingBalance(Number(e.target.value))}
+                />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4 justify-between border-t">
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteSession}
+            >
+              <Trash2 size={16} className="mr-1 inline" /> Delete
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSaveSession}
+              >
+                Save Changes
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

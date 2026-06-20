@@ -9,6 +9,9 @@ export interface ISession extends Document {
   endingBalance?: number;
   totalSales: number;
   status: "open" | "closed";
+  orderCount?: number;
+  totalDiscounts?: number;
+  paymentBreakdown?: Record<string, number>;
 }
 
 const sessionSchema = new Schema<ISession>(
@@ -21,6 +24,9 @@ const sessionSchema = new Schema<ISession>(
     endingBalance: { type: Number },
     totalSales: { type: Number, default: 0 },
     status: { type: String, enum: ["open", "closed"], default: "open" },
+    orderCount: { type: Number, default: 0 },
+    totalDiscounts: { type: Number, default: 0 },
+    paymentBreakdown: { type: Map, of: Number, default: {} },
   },
   { timestamps: true }
 );

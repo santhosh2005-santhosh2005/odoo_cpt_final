@@ -62,6 +62,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
                   <Route index element={<DashboardHome />} />
                   <Route path="analytics" element={<AdvancedAnalytics />} />
                   <Route path="reports" element={<Reports />} />
+                  <Route path="summary" element={<SummaryManagement />} />
                   <Route path="floor" element={<FloorManagement />} />
                   <Route path="staff" element={<StaffManagement />} />
                   <Route path="categories" element={<CategoryManagement />} />
@@ -75,7 +76,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               </Route>
 
               {/* Staff-only routes */}
-              <Route element={<RoleProtectedRoute allowedRoles={["staff", "cashier", "waiter", "barista"]} />}>
+              <Route element={<RoleProtectedRoute allowedRoles={["admin", "staff", "cashier", "waiter", "barista"]} />}>
                 <Route path="/dashboard" element={<Dashboard />}>
                   <Route path="pos" element={<POSPortal />} />
                   <Route path="pos/terminal" element={<MainPage />} />

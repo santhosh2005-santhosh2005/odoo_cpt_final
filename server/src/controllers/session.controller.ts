@@ -6,8 +6,15 @@ import mongoose from "mongoose";
 export const getSessions = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user.id;
-    // Check both cashier and user for backward compatibility
-    const sessions = await Session.find({ $or: [{ cashier: user }, { user }] }).sort({ createdAt: -1 });
+    const userRole = (req as any).user.role;
+    let query = {};
+    if (userRole !== "admin") {
+      query = { $or: [{ cashier: user }, { user }] };
+    }
+    const sessions = await Session.find(query)
+      .populate("cashier", "name")
+      .populate("user", "name")
+      .sort({ createdAt: -1 });
     return res.status(200).json({ success: true, data: sessions });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
@@ -61,7 +68,7 @@ export const closeSession = async (req: Request, res: Response) => {
     }
 
     // 1. Calculate summary metrics for the session
-    const orders = await Order.find({ session: session._id });
+    const orders = await Order.find({ sessionId: session._id });
     
     const totalSales = orders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
     const orderCount = orders.length;
@@ -73,11 +80,20 @@ export const closeSession = async (req: Request, res: Response) => {
       return acc;
     }, {});
 
-    // 3. Update session
+    // 3. Calculate total discounts given
+    const totalDiscounts = orders.reduce((sum, order) => {
+      const disc = order.discount || order.discountAmount || order.totalDiscount || 0;
+      return sum + disc;
+    }, 0);
+
+    // 4. Update session
     session.status = "closed";
     session.endTime = new Date();
     session.endingBalance = endingBalance;
     session.totalSales = totalSales;
+    session.orderCount = orderCount;
+    session.totalDiscounts = totalDiscounts;
+    session.paymentBreakdown = paymentBreakdown;
 
     await session.save();
 
@@ -87,7 +103,8 @@ export const closeSession = async (req: Request, res: Response) => {
       summary: {
         totalSales,
         orderCount,
-        paymentBreakdown
+        paymentBreakdown,
+        totalDiscounts
       }
     });
   } catch (error: any) {
@@ -117,7 +134,7 @@ export const getActiveSession = async (req: Request, res: Response) => {
 export const getSessionSummary = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const orders = await Order.find({ session: id });
+    const orders = await Order.find({ sessionId: id });
     
     const totalSales = orders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
     const orderCount = orders.length;
@@ -126,16 +143,77 @@ export const getSessionSummary = async (req: Request, res: Response) => {
       acc[method] = (acc[method] || 0) + (order.totalPrice || 0);
       return acc;
     }, {});
+    const totalDiscounts = orders.reduce((sum, order) => {
+      const disc = order.discount || order.discountAmount || order.totalDiscount || 0;
+      return sum + disc;
+    }, 0);
 
     res.json({
       success: true,
       summary: {
         totalSales,
         orderCount,
-        paymentBreakdown
+        paymentBreakdown,
+        totalDiscounts
       }
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Update a POS session (Admin only)
+ */
+export const updateSession = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { cashier, startTime, endTime, startingBalance, endingBalance, totalSales, status } = req.body;
+    
+    const userRole = (req as any).user.role;
+    if (userRole !== "admin") {
+      return res.status(403).json({ success: false, message: "Unauthorized. Admin privileges required." });
+    }
+
+    const session = await Session.findById(id);
+    if (!session) {
+      return res.status(404).json({ success: false, message: "Session not found" });
+    }
+
+    if (cashier) session.cashier = cashier;
+    if (startTime) session.startTime = new Date(startTime);
+    if (endTime) session.endTime = new Date(endTime);
+    if (typeof startingBalance === "number") session.startingBalance = startingBalance;
+    if (typeof endingBalance === "number") session.endingBalance = endingBalance;
+    if (typeof totalSales === "number") session.totalSales = totalSales;
+    if (status) session.status = status;
+
+    await session.save();
+    return res.status(200).json({ success: true, session });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Delete a POS session (Admin only)
+ */
+export const deleteSession = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const userRole = (req as any).user.role;
+    if (userRole !== "admin") {
+      return res.status(403).json({ success: false, message: "Unauthorized. Admin privileges required." });
+    }
+
+    const session = await Session.findByIdAndDelete(id);
+    if (!session) {
+      return res.status(404).json({ success: false, message: "Session not found" });
+    }
+
+    return res.status(200).json({ success: true, message: "Session deleted successfully" });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };

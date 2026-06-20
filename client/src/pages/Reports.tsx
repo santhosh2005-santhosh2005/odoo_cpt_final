@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   BarChart,
   Bar,
@@ -22,13 +24,27 @@ import {
   Download,
   FileSpreadsheet,
   FileText,
-  RefreshCw
+  RefreshCw,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { generatePDF } from "@/components/GeneratePdf";
+import { toast } from "react-hot-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/store";
+import { useUpdateSessionMutation, useDeleteSessionMutation } from "@/services/sessionApi";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5001";
 const token = () => localStorage.getItem("token");
@@ -79,9 +95,14 @@ interface EmployeeData {
 
 interface SessionData {
   _id: string;
-  user: { name: string };
+  user?: { name: string; _id?: string };
+  cashier?: { name: string; _id?: string };
   startTime: string;
+  endTime?: string;
   status: string;
+  startingBalance?: number;
+  totalSales?: number;
+  endingBalance?: number;
 }
 
 interface ProductData {
@@ -90,6 +111,77 @@ interface ProductData {
 }
 
 const Reports = () => {
+  const { role } = useSelector((state: RootState) => state.user);
+  const [updateSession] = useUpdateSessionMutation();
+  const [deleteSession] = useDeleteSessionMutation();
+
+  const [selectedSession, setSelectedSession] = useState<SessionData | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editCashier, setEditCashier] = useState("");
+  const [editStartTime, setEditStartTime] = useState("");
+  const [editEndTime, setEditEndTime] = useState("");
+  const [editStatus, setEditStatus] = useState("open");
+  const [editStartingBalance, setEditStartingBalance] = useState<number>(0);
+  const [editEndingBalance, setEditEndingBalance] = useState<number>(0);
+  const [editTotalSales, setEditTotalSales] = useState<number>(0);
+
+  const formatForDatetimeLocal = (dateString?: string | Date) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
+    const pad = (num: number) => String(num).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
+  const handleOpenEdit = (sess: SessionData) => {
+    setSelectedSession(sess);
+    setEditCashier(sess.cashier?._id || sess.user?._id || "");
+    setEditStartTime(formatForDatetimeLocal(sess.startTime));
+    setEditEndTime(formatForDatetimeLocal(sess.endTime));
+    setEditStatus(sess.status || "open");
+    setEditStartingBalance(sess.startingBalance || 0);
+    setEditEndingBalance(sess.endingBalance || 0);
+    setEditTotalSales(sess.totalSales || 0);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveSession = async () => {
+    if (!selectedSession) return;
+    try {
+      const body: any = {
+        cashier: editCashier || undefined,
+        startTime: editStartTime ? new Date(editStartTime).toISOString() : undefined,
+        endTime: editEndTime ? new Date(editEndTime).toISOString() : null,
+        status: editStatus,
+        startingBalance: Number(editStartingBalance),
+        endingBalance: editStatus === "closed" ? Number(editEndingBalance) : undefined,
+        totalSales: Number(editTotalSales),
+      };
+
+      await updateSession({ id: selectedSession._id, body }).unwrap();
+      toast.success("Session updated successfully");
+      setIsEditModalOpen(false);
+      fetchFilterOptions(); // Refresh the session list in table
+    } catch (err: any) {
+      toast.error(err.data?.message || "Failed to update session");
+    }
+  };
+
+  const handleDeleteSession = async () => {
+    if (!selectedSession) return;
+    const confirmDelete = window.confirm("Are you sure you want to delete this session? This action cannot be undone.");
+    if (!confirmDelete) return;
+
+    try {
+      await deleteSession(selectedSession._id).unwrap();
+      toast.success("Session deleted successfully");
+      setIsEditModalOpen(false);
+      fetchFilterOptions(); // Refresh session list
+    } catch (err: any) {
+      toast.error(err.data?.message || "Failed to delete session");
+    }
+  };
+
   const [filter, setFilter] = useState<FilterType>("today");
   const [startDate, setStartDate] = useState<string>(() => {
     const today = new Date();
@@ -174,36 +266,207 @@ const Reports = () => {
   };
 
   const handleExportPDF = async () => {
-    // Using existing generatePDF with dummy data for now (can enhance later)
-    generatePDF(
-      filter,
-      startDate,
-      endDate,
-      "all",
-      { totalOrders: overview.totalOrders, totalSales: overview.totalRevenue },
-      []
-    );
+    const doc = new jsPDF("p", "mm", "a4");
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
+    const margin = 15;
+    let y = 20;
+
+    // Header
+    doc.setFillColor(10, 10, 10);
+    doc.rect(0, 0, pageWidth, 40, "F");
+
+    doc.setTextColor(245, 180, 0); // Golden Yellow
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.text("ODOO COIMBATORE CAFE", pageWidth / 2, 18, { align: "center" });
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(12);
+    doc.text("SALES & SHIFT ANALYTICS REPORT", pageWidth / 2, 28, { align: "center" });
+
+    y = 50;
+
+    // Report Meta
+    doc.setTextColor(10, 10, 10);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("Report Details", margin, y);
+    y += 4;
+    doc.setDrawColor(10, 10, 10);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString("en-IN")}`, margin, y);
+    doc.text(`Time Period: ${filter.toUpperCase()}`, pageWidth / 2, y);
+    y += 6;
+
+    if (filter === "custom") {
+      doc.text(`Date Range: ${startDate} to ${endDate}`, margin, y);
+      y += 6;
+    }
+
+    const currentEmployeeName = employees.find(e => e._id === employeeId)?.name || "All Employees";
+    const currentSessionLabel = sessionId ? "Specific Session" : "All Sessions";
+    const currentProductName = products.find(p => p._id === productId)?.name || "All Products";
+
+    doc.text(`Employee: ${currentEmployeeName}`, margin, y);
+    doc.text(`Product: ${currentProductName}`, pageWidth / 2, y);
+    y += 6;
+    doc.text(`Session: ${currentSessionLabel}`, margin, y);
+    y += 12;
+
+    // Summary Metrics
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("Key Performance Metrics", margin, y);
+    y += 4;
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    autoTable(doc, {
+      startY: y,
+      head: [["Metric", "Value"]],
+      body: [
+        ["Total Orders", String(overview.totalOrders)],
+        ["Total Revenue", formatPrice(overview.totalRevenue)],
+        ["Average Order Value", formatPrice(overview.avgOrderValue)]
+      ],
+      theme: "striped",
+      styles: { fontSize: 10, cellPadding: 3 },
+      headStyles: { fillColor: [245, 180, 0], textColor: [10, 10, 10], fontStyle: "bold" },
+      margin: { left: margin, right: margin }
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 12;
+
+    // Top Categories
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("Top Categories Performance", margin, y);
+    y += 4;
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 6;
+
+    autoTable(doc, {
+      startY: y,
+      head: [["#", "Category", "Revenue"]],
+      body: topCategories.map((c, i) => [
+        String(i + 1),
+        c.categoryName,
+        formatPrice(c.totalRevenue)
+      ]),
+      theme: "striped",
+      styles: { fontSize: 9, cellPadding: 2.5 },
+      headStyles: { fillColor: [10, 10, 10], textColor: [255, 255, 255], fontStyle: "bold" },
+      margin: { left: margin, right: margin }
+    });
+
+    // Add page break for products and orders
+    doc.addPage();
+    y = 20;
+
+    // Top Products
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("Top Products Performance", margin, y);
+    y += 4;
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 6;
+
+    autoTable(doc, {
+      startY: y,
+      head: [["#", "Product Name", "Quantity Sold", "Revenue"]],
+      body: topProducts.map((p, i) => [
+        String(i + 1),
+        p.productName,
+        String(p.totalQuantity),
+        formatPrice(p.totalRevenue)
+      ]),
+      theme: "striped",
+      styles: { fontSize: 9, cellPadding: 2.5 },
+      headStyles: { fillColor: [10, 10, 10], textColor: [255, 255, 255], fontStyle: "bold" },
+      margin: { left: margin, right: margin }
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 12;
+
+    // Top Orders
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("Top Orders (Highest Revenue)", margin, y);
+    y += 4;
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 6;
+
+    autoTable(doc, {
+      startY: y,
+      head: [["Order #", "Customer", "Revenue"]],
+      body: topOrders.map((o) => [
+        o.orderNumber.slice(-8),
+        o.customerName || "Walk-in",
+        formatPrice(o.revenue)
+      ]),
+      theme: "striped",
+      styles: { fontSize: 9, cellPadding: 2.5 },
+      headStyles: { fillColor: [10, 10, 10], textColor: [255, 255, 255], fontStyle: "bold" },
+      margin: { left: margin, right: margin }
+    });
+
+    // Page Numbers and Footer
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      doc.setTextColor(120, 120, 120);
+      doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: "center" });
+      doc.text("Odoo Coimbatore Cafe - Confidential Sales Analytics", margin, pageHeight - 10);
+    }
+
+    doc.save(`Odoo_Cafe_Sales_Report_${new Date().toISOString().split("T")[0]}.pdf`);
   };
 
   const handleExportXLS = () => {
-    const headers = ["Report Data", "Value"];
+    const headers = ["Report Metric", "Value"];
     const rows = [
+      ["ODOO COIMBATORE CAFE - SALES SUMMARY REPORT", ""],
+      ["Generated Date", new Date().toLocaleString("en-IN")],
+      ["Time Period Filter", filter.toUpperCase()],
+      filter === "custom" ? ["Date Range", `${startDate} to ${endDate}`] : [],
+      employeeId ? ["Employee Filter ID", employeeId] : ["Employee Filter", "All Employees"],
+      sessionId ? ["Session Filter ID", sessionId] : ["Session Filter", "All Sessions"],
+      productId ? ["Product Filter ID", productId] : ["Product Filter", "All Products"],
+      [],
+      ["KEY METRICS", ""],
       ["Total Orders", overview.totalOrders],
       ["Total Revenue", overview.totalRevenue],
       ["Average Order Value", overview.avgOrderValue],
       [],
-      ["Top Products", ""],
+      ["TOP ORDERS", ""],
+      ["Order ID", "Customer", "Revenue"],
+      ...topOrders.map(o => [o.orderNumber, o.customerName || "Walk-in", o.revenue]),
+      [],
+      ["TOP PRODUCTS", ""],
       ["Product Name", "Quantity Sold", "Revenue"],
-      ...topProducts.map(p => [p.productName, p.totalQuantity, p.totalRevenue])
+      ...topProducts.map(p => [p.productName, p.totalQuantity, p.totalRevenue]),
+      [],
+      ["CATEGORIES PERFORMANCE", ""],
+      ["Category", "Revenue"],
+      ...topCategories.map(c => [c.categoryName, c.totalRevenue])
     ];
 
     const csvContent = "data:text/csv;charset=utf-8,"
-      + rows.map(e => e.join(",")).join("\n");
+      + rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")).join("\n");
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Odoo_Cafe_Report_${new Date().toISOString().split("T")[0]}.csv`);
+    link.setAttribute("download", `Odoo_Cafe_Sales_Report_${new Date().toISOString().split("T")[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -325,7 +588,7 @@ const Reports = () => {
                 <option value="">All Sessions</option>
                 {sessions.map((sess) => (
                   <option key={sess._id} value={sess._id}>
-                    {sess.user.name} - {new Date(sess.startTime).toLocaleDateString()}
+                    {sess.cashier?.name || sess.user?.name || "Operator"} - {new Date(sess.startTime).toLocaleDateString()}
                   </option>
                 ))}
               </select>
@@ -553,6 +816,198 @@ const Reports = () => {
           </table>
         </CardContent>
       </Card>
+
+      {/* Session History & Shift Audits */}
+      <Card className="border-2 border-deep-black shadow-[4px_4px_0_0_#0A0A0A] mt-6">
+        <CardHeader>
+          <CardTitle className="text-xl font-black">Session History & Shift Audits</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b-2 border-deep-black">
+                <th className="text-left py-2 px-1 font-mono text-[10px] uppercase tracking-widest">Cashier</th>
+                <th className="text-left py-2 px-1 font-mono text-[10px] uppercase tracking-widest">Start Time</th>
+                <th className="text-left py-2 px-1 font-mono text-[10px] uppercase tracking-widest">End Time</th>
+                <th className="text-center py-2 px-1 font-mono text-[10px] uppercase tracking-widest">Status</th>
+                <th className="text-right py-2 px-1 font-mono text-[10px] uppercase tracking-widest">Starting Balance</th>
+                <th className="text-right py-2 px-1 font-mono text-[10px] uppercase tracking-widest">Closing Sales</th>
+                <th className="text-right py-2 px-1 font-mono text-[10px] uppercase tracking-widest">Ending Balance</th>
+                {role === "admin" && (
+                  <th className="text-center py-2 px-1 font-mono text-[10px] uppercase tracking-widest">Actions</th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {sessions && sessions.length > 0 ? (
+                sessions.map((sess) => (
+                  <tr key={sess._id} className="border-b border-gray-200">
+                    <td className="py-2 px-1 font-bold">{sess.cashier?.name || sess.user?.name || "Operator"}</td>
+                    <td className="py-2 px-1 font-mono text-xs">{new Date(sess.startTime).toLocaleString("en-IN")}</td>
+                    <td className="py-2 px-1 font-mono text-xs">{sess.endTime ? new Date(sess.endTime).toLocaleString("en-IN") : "Active Session"}</td>
+                    <td className="py-2 px-1 text-center font-bold">
+                      <span className={`px-2 py-1 font-mono text-[9px] uppercase tracking-widest border-2 border-deep-black ${
+                        sess.status === "open" ? "bg-golden-yellow text-deep-black" : "bg-deep-black text-warm-white"
+                      }`}>
+                        {sess.status}
+                      </span>
+                    </td>
+                    <td className="py-2 px-1 text-right">INR {(sess.startingBalance || 0).toFixed(2)}</td>
+                    <td className="py-2 px-1 text-right font-bold text-green-600">INR {(sess.totalSales || 0).toFixed(2)}</td>
+                    <td className="py-2 px-1 text-right">{sess.endingBalance !== undefined ? `INR ${sess.endingBalance.toFixed(2)}` : "-"}</td>
+                    {role === "admin" && (
+                      <td className="py-2 px-1 text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="p-1 hover:bg-gray-200 border border-transparent hover:border-deep-black"
+                          onClick={() => handleOpenEdit(sess)}
+                        >
+                          <Edit size={14} className="text-deep-black" />
+                        </Button>
+                      </td>
+                    )}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={role === "admin" ? 8 : 7} className="text-center py-4 text-gray-500 italic">No session logs found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+
+      {/* Session Edit Dialog */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="bg-warm-white border-4 border-deep-black shadow-[8px_8px_0_0_#0A0A0A] max-w-md p-6 font-sans text-deep-black">
+          <DialogHeader className="border-b-2 border-deep-black pb-4">
+            <DialogTitle className="text-2xl font-black italic uppercase">
+              Edit Session
+            </DialogTitle>
+            <DialogDescription className="font-mono text-xs uppercase tracking-widest text-gray-500">
+              Modify Session Details & Shift Settings
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Operator */}
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase tracking-widest">Cashier / Operator</Label>
+              <select
+                value={editCashier}
+                onChange={(e) => setEditCashier(e.target.value)}
+                className="border-2 border-deep-black rounded-none w-full px-3 py-2 font-mono text-sm bg-white"
+              >
+                <option value="">Select Cashier</option>
+                {employees.map((emp) => (
+                  <option key={emp._id} value={emp._id}>
+                    {emp.name} ({emp.role})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Start Time */}
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase tracking-widest">Start Time</Label>
+              <Input
+                type="datetime-local"
+                value={editStartTime}
+                onChange={(e) => setEditStartTime(e.target.value)}
+                className="border-2 border-deep-black rounded-none font-mono text-sm"
+              />
+            </div>
+
+            {/* End Time */}
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase tracking-widest">End Time</Label>
+              <Input
+                type="datetime-local"
+                value={editEndTime}
+                onChange={(e) => setEditEndTime(e.target.value)}
+                className="border-2 border-deep-black rounded-none font-mono text-sm"
+              />
+            </div>
+
+            {/* Status */}
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase tracking-widest">Status</Label>
+              <select
+                value={editStatus}
+                onChange={(e) => setEditStatus(e.target.value)}
+                className="border-2 border-deep-black rounded-none w-full px-3 py-2 font-mono text-sm bg-white"
+              >
+                <option value="open">Open</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+
+            {/* Starting Balance */}
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase tracking-widest">Starting Balance (INR)</Label>
+              <Input
+                type="number"
+                value={editStartingBalance}
+                onChange={(e) => setEditStartingBalance(Number(e.target.value))}
+                className="border-2 border-deep-black rounded-none font-mono text-sm"
+              />
+            </div>
+
+            {/* Closing Sales */}
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase tracking-widest">Total Sales (INR)</Label>
+              <Input
+                type="number"
+                value={editTotalSales}
+                onChange={(e) => setEditTotalSales(Number(e.target.value))}
+                className="border-2 border-deep-black rounded-none font-mono text-sm"
+              />
+            </div>
+
+            {/* Ending Balance */}
+            {editStatus === "closed" && (
+              <div className="space-y-2">
+                <Label className="text-xs font-black uppercase tracking-widest">Ending Balance (INR)</Label>
+                <Input
+                  type="number"
+                  value={editEndingBalance}
+                  onChange={(e) => setEditEndingBalance(Number(e.target.value))}
+                  className="border-2 border-deep-black rounded-none font-mono text-sm"
+                />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 border-t-2 border-deep-black pt-4 justify-between">
+            <Button
+              type="button"
+              onClick={handleDeleteSession}
+              className="bg-red-600 hover:bg-red-700 text-white font-black uppercase border-2 border-deep-black shadow-[2px_2px_0_0_#000] hover:shadow-none transition-all"
+            >
+              <Trash2 size={16} className="mr-1 inline" /> Delete
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditModalOpen(false)}
+                className="border-2 border-deep-black rounded-none font-black uppercase"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSaveSession}
+                className="bg-golden-yellow hover:bg-yellow-500 text-deep-black font-black uppercase border-2 border-deep-black shadow-[2px_2px_0_0_#000] hover:shadow-none transition-all"
+              >
+                Save Changes
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -35,6 +35,8 @@ export function AppSidebar() {
 
   const adminItems = [
     { title: "DASHBOARD", url: "/dashboard", icon: LayoutDashboard },
+    { title: "POS TERMINAL", url: "/dashboard/pos", icon: ShoppingCart },
+    { title: "SALES SUMMARY", url: "/dashboard/summary", icon: FileText },
     { title: "ANALYTICS", url: "/dashboard/analytics", icon: BarChart2 },
     { title: "REPORTS", url: "/dashboard/reports", icon: BarChart3 },
     { title: "FLOOR & TABLES", url: "/dashboard/floor", icon: Map },
