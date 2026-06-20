@@ -13,7 +13,7 @@ export default function MainNavbar() {
         <div className="flex items-center justify-between h-20">
           {/* Logo + Brand */}
           <div className="flex items-center gap-4">
-            <img src="/app/logo.png" alt="Odoo Logo" className="w-12 h-12 border-2 border-deep-black p-1 bg-white" />
+            <img src="/logo.png" alt="Odoo Logo" className="w-12 h-12 border-2 border-deep-black p-1 bg-white" />
             <a
               href="/"
               className="text-2xl font-black italic tracking-tighter text-deep-black uppercase"

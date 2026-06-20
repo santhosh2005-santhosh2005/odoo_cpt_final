@@ -135,7 +135,7 @@ export default function Register() {
       <div className="w-full bg-golden-yellow text-deep-black p-12 flex flex-col border-t-8 border-deep-black mt-auto">
         <div>
           <div className="bg-deep-black text-white p-4 inline-block">
-            <img src="/app/logo.png" alt="Logo" className="w-16 h-16 invert" />
+            <img src="/logo.png" alt="Logo" className="w-16 h-16 invert" />
           </div>
           <h1 className="text-5xl md:text-7xl leading-[0.85] italic tracking-tighter mt-6">
             JOIN THE<br />

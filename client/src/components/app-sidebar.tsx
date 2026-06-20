@@ -75,7 +75,7 @@ export function AppSidebar() {
         <div className="flex items-center gap-3 px-6 py-8 h-28 bg-deep-black border-b border-golden-yellow/20">
           <div className="w-14 h-14 bg-white p-1 border-2 border-golden-yellow shadow-[4px_4px_0px_0px_#F5B400]">
             <img
-              src="/app/logo.png"
+              src="/logo.png"
               alt="Cafe Logo"
               className="w-full h-full object-contain"
             />

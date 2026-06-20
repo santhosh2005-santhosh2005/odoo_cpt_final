@@ -71,7 +71,7 @@ export default function ForgotPassword() {
       <div className="w-full bg-deep-black text-warm-white p-12 flex flex-col border-b-8 border-golden-yellow">
         <div className="flex justify-between items-start">
           <div className="w-24 h-24 bg-white p-2">
-            <img src="/app/logo.png" alt="Odoo POS Cafe" className="w-full h-full object-contain" />
+            <img src="/logo.png" alt="Odoo POS Cafe" className="w-full h-full object-contain" />
           </div>
         </div>
         <h1 className="text-5xl md:text-7xl leading-[0.85] italic tracking-tighter mt-6">

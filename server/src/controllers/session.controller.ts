@@ -26,14 +26,13 @@ export const openSession = async (req: Request, res: Response) => {
     const { startingBalance } = req.body;
     const userId = (req as any).user.id;
 
-    // 1. Check if user already has an active session
-    const activeSession = await Session.findOne({
-      $or: [{ cashier: userId, status: "open" }, { user: userId, status: "open" }]
-    });
+    // 1. Check if there is ANY active session in the system (Session locking)
+    const activeSession = await Session.findOne({ status: "open" }).populate("cashier", "name");
     if (activeSession) {
+      const cashierName = (activeSession.cashier as any)?.name || "another cashier";
       return res.status(400).json({ 
         success: false, 
-        message: "You already have an active session open." 
+        message: `Session lock active: POS session is already open by Cashier ${cashierName}. Please close it before starting a new one.` 
       });
     }
 

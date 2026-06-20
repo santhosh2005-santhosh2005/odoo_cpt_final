@@ -7,7 +7,7 @@ export default function Landing() {
       "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js",
       "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js",
       "https://unpkg.com/@studio-freight/lenis@1.0.34/dist/lenis.min.js",
-      "/app/odoofinal/app.js"
+      "/odoofinal/app.js"
     ];
 
     const loadedScripts: HTMLScriptElement[] = [];
@@ -30,7 +30,7 @@ export default function Landing() {
     // Load style.css
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = "/app/odoofinal/style.css";
+    link.href = "/odoofinal/style.css";
     document.head.appendChild(link);
 
     // Load Google Fonts for Impact Menu
@@ -66,7 +66,7 @@ export default function Landing() {
   <!-- ===================== NAVIGATION ===================== -->
   <nav class="nav">
     <div class="nav-logo" style="display: flex; align-items: center; gap: 8px;">
-      <img src="/app/logo.png" alt="Odoo Cafe Logo" style="height: 32px; width: 32px; border-radius: 0px; object-fit: contain;" />
+      <img src="/logo.png" alt="Odoo Cafe Logo" style="height: 32px; width: 32px; border-radius: 0px; object-fit: contain;" />
       <span>ODOO<span>.</span>CAFE</span>
     </div>
     <ul class="nav-links">
@@ -131,7 +131,7 @@ export default function Landing() {
         </div>
         <!-- THE KEY OVERFLOW EFFECT -->
         <video autoplay loop muted playsinline class="coffee-img-overflow" id="coffee-overflow-video">
-          <source src="/app/odoofinal/assets/hero_video.mp4" type="video/mp4">
+          <source src="/odoofinal/assets/hero_video.mp4" type="video/mp4">
         </video>
       </div>
     </div>
@@ -259,23 +259,23 @@ export default function Landing() {
       <!-- Center Main Poster -->
       <div class="center-main-poster reveal reveal-delay-1" data-title="Coffee Break"
         data-desc="Make time for yourself. A stunning blend of boba and chocolate, layered perfectly to give you the ultimate pause in your busy day.">
-        <img src="/app/odoofinal/boba-break.jpg" alt="Coffee Break Boba" />
+        <img src="/odoofinal/boba-break.jpg" alt="Coffee Break Boba" />
         <div class="poster-badge">COFFEE OF THE MONTH</div>
       </div>
 
       <div class="floating-photo-card card-2 reveal reveal-delay-3" data-title="Modern Kaapi"
         data-desc="A sleek, modern take on traditional coffee brewing, presented in a minimalist craft setting designed to highlight origins.">
-        <img src="/app/odoofinal/image/original-7a5c539c7fe8253609eaac88da57a04e.webp" alt="Cafe Design 2" />
+        <img src="/odoofinal/image/original-7a5c539c7fe8253609eaac88da57a04e.webp" alt="Cafe Design 2" />
         <div class="photo-caption">[ MODERN_KAAPI ]</div>
       </div>
       <div class="floating-photo-card card-3 reveal reveal-delay-4" data-title="Traditional Ritual"
         data-desc="Rediscover the true essence of coffee with our curated grid of traditional favorites, celebrating flavors that stand the test of time.">
-        <img src="/app/odoofinal/image/original-a6781c6870b6c8c90ac85afb1289a19e.webp" alt="Cafe Design 3" />
+        <img src="/odoofinal/image/original-a6781c6870b6c8c90ac85afb1289a19e.webp" alt="Cafe Design 3" />
         <div class="photo-caption">[ TRADITIONAL_RITUAL ]</div>
       </div>
       <div class="floating-photo-card card-4 reveal reveal-delay-3" data-title="Heritage Space"
         data-desc="Step into a world where design meets comfort. Our heritage-inspired spaces provide the perfect backdrop for your daily coffee routine.">
-        <img src="/app/odoofinal/image/original-e0d0d1355e9da8555659686bb1b28e07.webp" alt="Cafe Design 4" />
+        <img src="/odoofinal/image/original-e0d0d1355e9da8555659686bb1b28e07.webp" alt="Cafe Design 4" />
         <div class="photo-caption">[ HERITAGE_SPACE ]</div>
       </div>
     </div>
@@ -308,7 +308,7 @@ export default function Landing() {
         <div class="iced-drink-item caramel" data-title="Strawberry Splash" data-desc="A vibrant and refreshing blast of strawberry goodness. This icy concoction combines fresh fruit flavors for a sweet, satisfying chill." data-reverse="true">
           <div class="drink-label">ICED CARAMEL<br />LATTE</div>
           <div class="drink-image-container">
-            <img src="/app/odoofinal/iced1.jpg" alt="Iced Caramel Latte" />
+            <img src="/odoofinal/iced1.jpg" alt="Iced Caramel Latte" />
             <div class="splash splash-caramel"></div>
           </div>
         </div>
@@ -317,7 +317,7 @@ export default function Landing() {
         <div class="iced-drink-item vanilla main" data-title="Strawberry Lemonade" data-desc="The ultimate thirst quencher. Zesty fresh lemon meets ripe strawberries over ice, creating a dazzling combination of sweet and tart flavors." data-reverse="true">
           <div class="drink-label">ICED VANILLA<br />LATTE</div>
           <div class="drink-image-container">
-            <img src="/app/odoofinal/iced2.jpg" alt="Iced Vanilla Latte" />
+            <img src="/odoofinal/iced2.jpg" alt="Iced Vanilla Latte" />
             <div class="splash splash-vanilla"></div>
           </div>
         </div>
@@ -326,7 +326,7 @@ export default function Landing() {
         <div class="iced-drink-item hazelnut" data-title="Coffee Boba" data-desc="Elevate your coffee break with this stunning combination of rich, bold coffee layered with creamy milk and chewy, satisfying boba pearls at the bottom." data-reverse="true">
           <div class="drink-label">ICED HAZELNUT<br />LATTE</div>
           <div class="drink-image-container">
-            <img src="/app/odoofinal/iced3.jpg" alt="Iced Hazelnut Latte" />
+            <img src="/odoofinal/iced3.jpg" alt="Iced Hazelnut Latte" />
             <div class="splash splash-hazelnut"></div>
           </div>
         </div>
@@ -354,7 +354,7 @@ export default function Landing() {
     <div class="editorial-left reveal">
       <div class="editorial-img-stack">
         <div class="editorial-img-main">
-          <img src="/app/odoofinal/editorial-coffee.jpg" alt="Indian Coffee Heritage" />
+          <img src="/odoofinal/editorial-coffee.jpg" alt="Indian Coffee Heritage" />
         </div>
         <div class="editorial-img-accent">
           <div class="editorial-img-accent-text">
@@ -409,7 +409,7 @@ export default function Landing() {
   <footer class="footer" id="contact">
     <div>
       <div class="footer-logo" style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-        <img src="/app/logo.png" alt="Odoo Cafe Logo" style="height: 32px; width: 32px; filter: invert(1); border-radius: 0px; object-fit: contain;" />
+        <img src="/logo.png" alt="Odoo Cafe Logo" style="height: 32px; width: 32px; filter: invert(1); border-radius: 0px; object-fit: contain;" />
         <span>ODOO<span>.</span>CAFE</span>
       </div>
       <p class="footer-desc">

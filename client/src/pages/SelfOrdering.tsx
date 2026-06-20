@@ -279,7 +279,7 @@ export default function SelfOrdering() {
   // Countdown timer for checkout payment QR code
   useEffect(() => {
     let timerInterval: any;
-    if (showPaymentQrModal && paymentTimer > 0) {
+    if (showPaymentQrModal) {
       timerInterval = setInterval(() => {
         setPaymentTimer((prev) => {
           if (prev <= 1) {
@@ -291,9 +291,11 @@ export default function SelfOrdering() {
           return prev - 1;
         });
       }, 1000);
+    } else {
+      setPaymentTimer(150); // Reset timer when modal is closed
     }
     return () => clearInterval(timerInterval);
-  }, [showPaymentQrModal, paymentTimer]);
+  }, [showPaymentQrModal]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -1492,10 +1494,10 @@ export default function SelfOrdering() {
             {/* Dynamic QR Code Display */}
             <div className="border-4 border-deep-black bg-white relative overflow-hidden aspect-square flex items-center justify-center p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]">
               <img 
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
+                src={`https://quickchart.io/qr?size=300&text=${encodeURIComponent(
                   selectedPaymentMethod === "upi" 
-                    ? `upi://pay?pa=${upiId}&pn=${encodeURIComponent(businessName)}&am=${finalTotal.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Table ${selectedTable?.number} Self-Order`)}`
-                    : `https://checkout.odoopos.com/pay/${selectedPaymentMethod}?amount=${finalTotal.toFixed(2)}&table=${selectedTable?.number}`
+                    ? `upi://pay?pa=${upiId}&pn=${businessName}&am=${finalTotal.toFixed(2)}&cu=INR&tn=Table ${selectedTable?.number || ""} Self-Order`
+                    : `https://checkout.odoopos.com/pay/${selectedPaymentMethod}?amount=${finalTotal.toFixed(2)}&table=${selectedTable?.number || ""}`
                 )}`} 
                 alt="Payment QR Code" 
                 className="w-full h-full object-contain"
