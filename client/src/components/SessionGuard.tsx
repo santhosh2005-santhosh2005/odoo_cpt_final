@@ -44,8 +44,8 @@ const SessionGuard = ({ children }: { children: React.ReactNode }) => {
 
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
-  // List of admin routes that don't require a POS session
-  const adminRoutes = [
+  // List of routes that don't require a POS session (bypass check)
+  const sessionBypassRoutes = [
     "/dashboard/analytics",
     "/dashboard/floor",
     "/dashboard/staff",
@@ -54,11 +54,23 @@ const SessionGuard = ({ children }: { children: React.ReactNode }) => {
     "/dashboard/promotions",
     "/dashboard/reports",
     "/dashboard/settings",
-    "/dashboard/profile"
+    "/dashboard/profile",
+    "/dashboard/orders",
+    "/dashboard/kitchen",
+    "/dashboard/waiter-station",
+    "/dashboard/pos"
   ];
 
-  // Check if current route is an admin route OR user is admin
-  const isAdminRouteOrUser = role === "admin" || adminRoutes.some(route => location.pathname.startsWith(route));
+  // Check if current route is a bypass route OR user is admin
+  const isAdminRouteOrUser =
+    role === "admin" ||
+    sessionBypassRoutes.some((route) => {
+      // Exactly match the POS Portal dashboard but not the terminal page itself (/dashboard/pos/terminal)
+      if (route === "/dashboard/pos") {
+        return location.pathname === "/dashboard/pos";
+      }
+      return location.pathname.startsWith(route);
+    });
 
   // Check for active session on mount or token change
   useEffect(() => {

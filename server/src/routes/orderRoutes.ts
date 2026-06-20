@@ -36,10 +36,12 @@ router.get("/summary/report", authMiddleware, getOrderReport);
 router.get("/sales/last-7-days", authMiddleware, getSalesLast7Days);
 
 // @route   GET /api/orders/:id
-router.get("/:id", authMiddleware, getOrderById);
+// Allow public access for customer orders
+router.get("/:id", getOrderById);
 
 // @route   PUT /api/orders/:id
-router.put("/:id", authMiddleware, updateOrder);
+// Allow public access for customer order updates
+router.put("/:id", updateOrder);
 
 // @route   DELETE /api/orders/:id
 router.delete("/:id", authMiddleware, deleteOrder);

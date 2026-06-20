@@ -30,7 +30,7 @@ export default function FloorManagement() {
 
   const { data: floorsData, isLoading: floorsLoading } = useGetFloorsQuery();
   const { data: tablesData, isLoading: tablesLoading } = useGetTablesQuery();
-  const { data: staffData } = useGetAllStaffQuery(undefined);
+  const { data: staffData } = useGetAllStaffQuery(undefined, { skip: !isAdmin });
   
   const [createFloor] = useCreateFloorMutation();
   const [deleteFloor] = useDeleteFloorMutation();

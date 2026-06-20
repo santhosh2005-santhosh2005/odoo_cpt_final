@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store";
@@ -28,10 +28,13 @@ import {
   DollarSign,
   Zap,
   Package,
-  Filter
+  Filter,
+  QrCode,
+  Camera
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useGetPromotionsQuery, useValidateCouponMutation } from "@/services/couponApi";
+import { Html5Qrcode } from "html5-qrcode";
 
 type Step = "floor" | "table" | "menu" | "payment" | "status";
 
@@ -49,6 +52,80 @@ export default function SelfOrdering() {
   const [couponInput, setCouponInput] = useState("");
   const [couponError, setCouponError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // QR Code Scanner State & Config
+  const [isScanning, setIsScanning] = useState(false);
+  const qrRegionId = "qr-reader-element";
+  const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
+
+  const startScanner = () => {
+    setIsScanning(true);
+    setTimeout(() => {
+      try {
+        const html5QrCode = new Html5Qrcode(qrRegionId);
+        html5QrCodeRef.current = html5QrCode;
+        html5QrCode.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+          },
+          (decodedText) => {
+            handleQrSuccess(decodedText);
+          },
+          (errorMessage) => {
+            // Suppress verbose scanner matching errors
+          }
+        ).catch(err => {
+          console.error("Scanner failed to start:", err);
+          toast.error("Failed to start camera. Verify permissions.");
+          setIsScanning(false);
+        });
+      } catch (err) {
+        console.error("Scanner instantiation error:", err);
+        setIsScanning(false);
+      }
+    }, 300);
+  };
+
+  const stopScanner = () => {
+    if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+      html5QrCodeRef.current.stop().then(() => {
+        html5QrCodeRef.current = null;
+        setIsScanning(false);
+      }).catch(err => {
+        console.error("Failed to stop scanner:", err);
+        setIsScanning(false);
+      });
+    } else {
+      setIsScanning(false);
+    }
+  };
+
+  const handleQrSuccess = (decodedText: string) => {
+    let extractedToken = "";
+    if (decodedText.includes("/s/")) {
+      const parts = decodedText.split("/s/");
+      extractedToken = parts[parts.length - 1].split("?")[0].split("#")[0].trim();
+    }
+    
+    if (extractedToken) {
+      stopScanner();
+      toast.success("Table scanned successfully!");
+      navigate(`/s/${extractedToken}`);
+    } else {
+      toast.error("Invalid QR code. Please scan a table QR.");
+    }
+  };
+
+  // Stop scanner on unmount
+  useEffect(() => {
+    return () => {
+      if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+        html5QrCodeRef.current.stop().catch(console.error);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     socket.on("orderUpdated", (updatedOrder: any) => {
@@ -674,6 +751,22 @@ export default function SelfOrdering() {
         <>
           {renderHeader("Select_Your_Space.")}
           <div className="p-12 max-w-7xl mx-auto space-y-12">
+            {/* Table Scan Banner */}
+            <div className="bg-deep-black text-warm-white p-8 border-4 border-golden-yellow shadow-[8px_8px_0px_0px_#000] flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="space-y-2">
+                <span className="bg-golden-yellow text-deep-black px-3 py-1 font-mono text-[8px] font-black uppercase tracking-widest">Quick Access</span>
+                <h3 className="text-3xl font-black italic uppercase tracking-tighter">Scan Table QR Code</h3>
+                <p className="font-mono text-[10px] text-gray-400 uppercase tracking-widest">
+                  Instantly load the menu for your specific table by scanning the QR code on the table.
+                </p>
+              </div>
+              <button
+                onClick={startScanner}
+                className="bg-golden-yellow text-deep-black h-16 px-8 flex items-center justify-center gap-3 w-full md:w-auto font-black uppercase italic border-2 border-deep-black cursor-pointer shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] active:translate-y-1 active:translate-x-1 active:shadow-none transition-all"
+              >
+                <QrCode size={20} /> Start Scanning
+              </button>
+            </div>
             <div className="flex items-center gap-4 border-b-4 border-deep-black pb-4">
                <LayoutGrid className="text-golden-yellow" size={32} />
                <h2 className="text-4xl font-black italic uppercase">01. Choose_Floor</h2>
@@ -1077,6 +1170,46 @@ export default function SelfOrdering() {
                  View_History
                </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Scanner Dialog */}
+      {isScanning && (
+        <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-md">
+          <div className="bg-warm-white border-4 border-deep-black shadow-[16px_16px_0px_0px_#F5B400] max-w-md w-full p-8 relative rounded-none">
+            <button
+              onClick={stopScanner}
+              className="absolute top-4 right-4 w-10 h-10 border-2 border-deep-black flex items-center justify-center bg-red-500 text-white hover:bg-red-600 transition-colors cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="text-center space-y-4 mb-6">
+              <span className="bg-golden-yellow text-deep-black px-3 py-1 font-mono text-[8px] font-black uppercase tracking-widest">Camera Stream</span>
+              <h3 className="text-3xl font-black italic uppercase tracking-tighter">Scanning Table QR</h3>
+              <p className="font-mono text-[10px] text-gray-500 uppercase tracking-widest">
+                Center the QR code in the camera frame to scan.
+              </p>
+            </div>
+
+            <div className="border-4 border-deep-black bg-black relative overflow-hidden aspect-square">
+              <div id={qrRegionId} className="w-full h-full"></div>
+              {/* Target Outline Overlay */}
+              <div className="absolute inset-8 border-2 border-dashed border-golden-yellow/70 pointer-events-none flex items-center justify-center">
+                <div className="w-4 h-4 border-t-2 border-l-2 border-golden-yellow absolute top-0 left-0"></div>
+                <div className="w-4 h-4 border-t-2 border-r-2 border-golden-yellow absolute top-0 right-0"></div>
+                <div className="w-4 h-4 border-b-2 border-l-2 border-golden-yellow absolute bottom-0 left-0"></div>
+                <div className="w-4 h-4 border-b-2 border-r-2 border-golden-yellow absolute bottom-0 right-0"></div>
+              </div>
+            </div>
+
+            <button
+              onClick={stopScanner}
+              className="w-full mt-6 bg-deep-black text-warm-white py-4 font-black uppercase hover:bg-red-500 hover:text-white transition-colors cursor-pointer"
+            >
+              Cancel Scanning
+            </button>
           </div>
         </div>
       )}
