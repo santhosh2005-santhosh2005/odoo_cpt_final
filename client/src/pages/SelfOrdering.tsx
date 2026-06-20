@@ -176,16 +176,32 @@ export default function SelfOrdering() {
   };
 
   const handleQrSuccess = (decodedText: string) => {
+    const trimmed = decodedText.trim();
     let extractedToken = "";
-    if (decodedText.includes("/s/")) {
-      const parts = decodedText.split("/s/");
+    let extractedTableNumber = "";
+
+    if (trimmed.includes("/s/")) {
+      const parts = trimmed.split("/s/");
       extractedToken = parts[parts.length - 1].split("?")[0].split("#")[0].trim();
+    } else if (trimmed.includes("/self-order/")) {
+      const parts = trimmed.split("/self-order/");
+      extractedTableNumber = parts[parts.length - 1].split("?")[0].split("#")[0].trim();
+    } else if (/^[a-fA-F0-9]{32}$/.test(trimmed)) {
+      // 32-character hex string is treated as a token
+      extractedToken = trimmed;
+    } else if (/^\d+$/.test(trimmed)) {
+      // simple numeric string is treated as a table number
+      extractedTableNumber = trimmed;
     }
-    
+
     if (extractedToken) {
       stopScanner();
       toast.success("Table scanned successfully!");
       navigate(`/s/${extractedToken}`);
+    } else if (extractedTableNumber) {
+      stopScanner();
+      toast.success("Table scanned successfully!");
+      navigate(`/self-order/${extractedTableNumber}`);
     } else {
       toast.error("Invalid QR code. Please scan a table QR.");
     }
@@ -279,7 +295,7 @@ export default function SelfOrdering() {
     return () => clearInterval(timer);
   }, [modificationCountdown]);
 
-  const { token } = useParams<{ token: string }>();
+  const { token, tableNumber } = useParams<{ token?: string; tableNumber?: string }>();
   const { data: tableByTokenData } = useGetTableByTokenQuery(token || "", { skip: !token });
   const floors = (floorsData as any)?.data || [];
   const allTables = (tablesData as any)?.data || [];
@@ -287,7 +303,7 @@ export default function SelfOrdering() {
 
   // Auto-select table from URL token if available
   useEffect(() => {
-    if (tableByTokenData?.data) {
+    if (tableByTokenData?.data && floors.length > 0) {
       const table = tableByTokenData.data;
       // Find the floor for this table
       const floorId = table.floor?._id || table.floor;
@@ -299,6 +315,22 @@ export default function SelfOrdering() {
       setStep("menu"); // Skip directly to menu if table is auto-selected
     }
   }, [tableByTokenData, floors]);
+
+  // Auto-select table from URL tableNumber if available
+  useEffect(() => {
+    if (tableNumber && allTables.length > 0 && floors.length > 0) {
+      const table = allTables.find((t: any) => t.number.toString() === tableNumber.toString());
+      if (table) {
+        const floorId = table.floor?._id || table.floor;
+        const floor = floors.find((f: any) => f._id === floorId);
+        if (floor) {
+          setSelectedFloor(floor);
+        }
+        setSelectedTable(table);
+        setStep("menu"); // Skip directly to menu if table is auto-selected
+      }
+    }
+  }, [tableNumber, allTables, floors]);
 
   const filteredTables = allTables.filter((t: any) => {
     const floorId = t.floor?._id || t.floor;

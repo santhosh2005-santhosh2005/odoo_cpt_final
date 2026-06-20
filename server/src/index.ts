@@ -138,10 +138,10 @@ app.get("/error", (req: Request) => {
 });
 
 // For React Router (SPA fallback)
-app.get("*", (req: Request, res: Response) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   // If it's an API route, don't serve index.html
   if (req.path.startsWith("/api") || req.path.startsWith("/socket.io")) {
-    return res.status(404).json({ success: false, message: "Route not found" });
+    return next();
   }
   // Otherwise, serve the index.html from client dist
   res.sendFile(path.join(clientDistPath, "index.html"));
