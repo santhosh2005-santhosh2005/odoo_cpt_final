@@ -1,0 +1,63 @@
+services:
+  - type: web
+    name: pos-backend
+    env: node
+    rootDir: server
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    plan: free
+    envVars:
+      - key: PORT
+        value: "5001"
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: pos-frontend
+          envVarKey: RENDER_EXTERNAL_URL
+
+  - type: web
+    name: pos-frontend
+    env: static
+    rootDir: client
+    buildCommand: |
+      npm install && \
+      npm run build && \
+      cp -r public/* dist/ 2>/dev/null || true && \
+      # Set up landing page as root
+      if [ -f dist/landing.html ]; then \
+        # Replace index.html with landing.html
+        cp dist/landing.html dist/index.html && \
+        rm dist/landing.html; \
+      fi
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: pos-backend
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: pos-backend
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: VITE_GOOGLE_CLIENT_ID
+        fromService:
+          type: web
+          name: pos-backend
+          envVarKey: GOOGLE_CLIENT_ID
+    routes:
+      - type: redirect
+        source: /
+        destination: /app/
+      - type: rewrite
+        source: /app/*
+        destination: /app/index.html
