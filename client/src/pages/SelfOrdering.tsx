@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useGetPromotionsQuery, useValidateCouponMutation } from "@/services/couponApi";
+import { useIdentifyGuestCustomerMutation } from "@/services/guestCustomerApi";
 import { Html5Qrcode } from "html5-qrcode";
 import { useGetSettingsQuery } from "@/services/SettingsApi";
 
@@ -53,6 +54,15 @@ export default function SelfOrdering() {
   const [couponInput, setCouponInput] = useState("");
   const [couponError, setCouponError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Guest Customer State
+  const [guestCustomer, setGuestCustomer] = useState<any>(null);
+  const [showCustomerForm, setShowCustomerForm] = useState(false);
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerFormError, setCustomerFormError] = useState("");
+  const [showWhyExpanded, setShowWhyExpanded] = useState(false);
+  const [identifyGuestCustomer, { isLoading: isIdentifying }] = useIdentifyGuestCustomerMutation();
 
   // QR Code Scanner State & Config
   const [isScanning, setIsScanning] = useState(false);
@@ -332,7 +342,8 @@ export default function SelfOrdering() {
     const floor = floors.find((f: any) => f._id?.toString() === floorId?.toString());
     if (floor) setSelectedFloor(floor);
     setSelectedTable(table);
-    setStep("menu");
+    // Show customer form before proceeding to menu
+    setShowCustomerForm(true);
   }, [token, tableByTokenData, floors]);
 
   // Auto-select table from URL tableNumber — runs whenever tables OR floors update
@@ -345,7 +356,8 @@ export default function SelfOrdering() {
     const floor = floors.find((f: any) => f._id?.toString() === floorId?.toString());
     if (floor) setSelectedFloor(floor);
     setSelectedTable(table);
-    setStep("menu");
+    // Show customer form before proceeding to menu
+    setShowCustomerForm(true);
   }, [tableNumber, allTables, floors]);
 
   const filteredTables = allTables.filter((t: any) => {
@@ -770,7 +782,8 @@ export default function SelfOrdering() {
         discount: appliedPromoDiscount,
         discountAmount: appliedPromoDiscount,
         couponCode: finalCouponCode || undefined,
-        appliedPromotions: finalAppliedPromotions
+        appliedPromotions: finalAppliedPromotions,
+        guestCustomerId: guestCustomer?._id || undefined,
       };
 
       let res;
@@ -793,6 +806,39 @@ export default function SelfOrdering() {
       toast.error("Failed to place order");
     }
   };
+
+  // ── GUEST CUSTOMER IDENTIFICATION ──────────────────────────────────────────
+  const handleCustomerIdentify = async () => {
+    setCustomerFormError("");
+    const phone = customerPhone.replace(/\D/g, "");
+    const email = customerEmail.trim().toLowerCase();
+
+    if (phone.length < 10) {
+      setCustomerFormError("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setCustomerFormError("Please enter a valid email address.");
+      return;
+    }
+
+    try {
+      const result = await identifyGuestCustomer({ phone, email }).unwrap();
+      setGuestCustomer(result.data);
+      setShowCustomerForm(false);
+
+      if (result.isNewCustomer) {
+        toast.success("🎉 Welcome! Check your email for a special greeting.", { duration: 4000 });
+      } else {
+        toast.success(`🤗 Welcome back! Visit #${result.data.visitCount}. Check your email!`, { duration: 4000 });
+      }
+      setStep("menu");
+    } catch (err: any) {
+      setCustomerFormError(err?.data?.message || "Something went wrong. Please try again.");
+    }
+  };
+  // ────────────────────────────────────────────────────────────────────────────
 
   // Wait time logic
   useEffect(() => {
@@ -890,7 +936,7 @@ export default function SelfOrdering() {
               </h3>
             </div>
             <Button 
-              onClick={() => setStep("menu")}
+              onClick={() => setShowCustomerForm(true)}
               className="bg-golden-yellow text-deep-black h-20 px-12 rounded-none border-4 border-deep-black shadow-[6px_6px_0px_0px_#fff] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all text-2xl font-black uppercase italic flex gap-4"
             >
               Initialize_Menu <ChevronRight size={32} />
@@ -1491,6 +1537,130 @@ export default function SelfOrdering() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── CUSTOMER IDENTIFICATION MODAL ───────────────────────────────────── */}
+      {showCustomerForm && (
+        <div className="fixed inset-0 bg-black/90 z-[110] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div
+            className="bg-white border-4 border-deep-black shadow-[20px_20px_0px_0px_#F5B400] max-w-lg w-full relative overflow-hidden"
+            style={{ animation: "slideUpFade 0.3s ease-out" }}
+          >
+            {/* Top accent bar */}
+            <div className="bg-deep-black px-8 py-6 border-b-4 border-golden-yellow">
+              <p className="font-mono text-[9px] text-golden-yellow uppercase tracking-[0.35em] mb-1">Guest_Identification_Protocol</p>
+              <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white leading-tight">
+                Before We Begin<br/>
+                <span className="text-golden-yellow">Let's Get You Set Up</span>
+              </h2>
+            </div>
+
+            {/* Selected table badge */}
+            {selectedTable && (
+              <div className="bg-golden-yellow px-8 py-3 flex items-center gap-3">
+                <MapPin size={14} className="text-deep-black" />
+                <span className="font-mono text-[10px] font-black uppercase tracking-widest text-deep-black">
+                  Table {selectedTable.number}
+                  {selectedFloor ? ` · ${selectedFloor.name}` : ""}
+                </span>
+              </div>
+            )}
+
+            <div className="p-8 space-y-6">
+              <p className="text-sm text-gray-500 leading-relaxed">
+                Enter your details below — no password needed. We use this to send you a welcome note and share today's active promotions with you.
+              </p>
+
+              {/* Phone field */}
+              <div className="space-y-2">
+                <label className="font-mono text-[10px] font-black uppercase tracking-widest text-deep-black">
+                  Mobile_Number *
+                </label>
+                <div className="flex border-4 border-deep-black focus-within:border-golden-yellow transition-colors">
+                  <span className="bg-deep-black text-golden-yellow px-4 flex items-center font-mono text-sm font-black">+91</span>
+                  <input
+                    id="guest-phone"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    placeholder="98765 43210"
+                    value={customerPhone}
+                    onChange={(e) => {
+                      setCustomerPhone(e.target.value.replace(/\D/g, "").slice(0, 10));
+                      setCustomerFormError("");
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && document.getElementById("guest-email")?.focus()}
+                    className="flex-1 px-4 py-4 font-mono text-lg tracking-widest focus:outline-none bg-white"
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              {/* Email field */}
+              <div className="space-y-2">
+                <label className="font-mono text-[10px] font-black uppercase tracking-widest text-deep-black">
+                  Email_Address *
+                </label>
+                <input
+                  id="guest-email"
+                  type="email"
+                  inputMode="email"
+                  placeholder="you@gmail.com"
+                  value={customerEmail}
+                  onChange={(e) => {
+                    setCustomerEmail(e.target.value);
+                    setCustomerFormError("");
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && handleCustomerIdentify()}
+                  className="w-full border-4 border-deep-black focus:border-golden-yellow focus:outline-none px-4 py-4 font-mono text-sm transition-colors"
+                />
+              </div>
+
+              {/* Error message */}
+              {customerFormError && (
+                <div className="bg-red-50 border-2 border-red-500 px-4 py-3">
+                  <p className="text-xs font-mono font-bold text-red-600">⚠️ {customerFormError}</p>
+                </div>
+              )}
+
+              {/* Why we ask */}
+              <div className="border-t-2 border-gray-100 pt-4">
+                <button
+                  onClick={() => setShowWhyExpanded((v) => !v)}
+                  className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-gray-400 hover:text-deep-black transition-colors"
+                >
+                  <span>{showWhyExpanded ? "▲" : "▼"}</span> Why do we ask this?
+                </button>
+                {showWhyExpanded && (
+                  <p className="mt-2 text-xs text-gray-400 leading-relaxed">
+                    We use your details to send a one-time welcome email, share active promotions, and remember you on your next visit. No spam, no passwords. You can ask us to delete your data anytime.
+                  </p>
+                )}
+              </div>
+
+              {/* CTA */}
+              <button
+                id="guest-submit"
+                onClick={handleCustomerIdentify}
+                disabled={isIdentifying}
+                className="w-full bg-deep-black text-white py-5 font-black italic uppercase tracking-widest text-lg border-4 border-deep-black shadow-[6px_6px_0px_0px_#F5B400] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 cursor-pointer"
+              >
+                {isIdentifying ? (
+                  <><span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span> Identifying...</>
+                ) : (
+                  <>Start_Ordering <ChevronRight size={22} /></>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <style>{`
+            @keyframes slideUpFade {
+              from { opacity: 0; transform: translateY(24px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
         </div>
       )}
 

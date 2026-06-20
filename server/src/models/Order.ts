@@ -52,6 +52,7 @@ export interface IOrder extends Document {
   discountAmount?: number;
   couponCode?: string;
   appliedPromotions?: string[];
+  guestCustomerId?: Types.ObjectId; // linked self-order guest
 }
 
 const orderItemSchema = new Schema<IOrderItem>({
@@ -120,6 +121,8 @@ const orderSchema = new Schema<IOrder>(
     estimatedTime: { type: Number, default: 0 },
     confirmedTime: { type: Number, default: 0 },
     timeConfirmedAt: { type: Date },
+    // ── GUEST CUSTOMER LINK ───────────────────────────────────────────────────
+    guestCustomerId: { type: Schema.Types.ObjectId, ref: "GuestCustomer", required: false },
   },
   { timestamps: true }
 );

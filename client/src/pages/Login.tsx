@@ -121,6 +121,11 @@ export default function Login() {
                 placeholder="••••••••"
                 required
               />
+              <div className="flex justify-end pt-1">
+                <Link to="/forgot-password" className="text-xs font-mono font-bold text-deep-black hover:text-golden-yellow transition-colors underline">
+                  FORGOT_PASSWORD?
+                </Link>
+              </div>
             </div>
 
             <Button

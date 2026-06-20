@@ -14,6 +14,7 @@ import { couponApi } from "@/services/couponApi";
 import { receiptApi } from "@/services/receiptApi";
 import { apiKeyApi } from "@/services/apiKeyApi";
 import { selfOrderingSettingsApi } from "@/services/selfOrderingSettingsApi";
+import { guestCustomerApi } from "@/services/guestCustomerApi";
 
 export const store = configureStore({
   reducer: {
@@ -32,6 +33,7 @@ export const store = configureStore({
     [receiptApi.reducerPath]: receiptApi.reducer,
     [apiKeyApi.reducerPath]: apiKeyApi.reducer,
     [selfOrderingSettingsApi.reducerPath]: selfOrderingSettingsApi.reducer,
+    [guestCustomerApi.reducerPath]: guestCustomerApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware()
@@ -47,7 +49,8 @@ export const store = configureStore({
       .concat(couponApi.middleware)
       .concat(receiptApi.middleware)
       .concat(apiKeyApi.middleware)
-      .concat(selfOrderingSettingsApi.middleware),
+      .concat(selfOrderingSettingsApi.middleware)
+      .concat(guestCustomerApi.middleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

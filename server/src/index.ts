@@ -20,6 +20,7 @@ import promotionRoutes from "./routes/promotionRoutes";
 import receiptRoutes from "./routes/receiptRoutes";
 import apiKeyRoutes from "./routes/apiKeyRoutes";
 import selfOrderingSettingsRoutes from "./routes/selfOrderingSettingsRoutes";
+import guestCustomerRoutes from "./routes/guestCustomerRoutes";
 import logger from "./utils/logger";
 import path from "path";
 dotenv.config();
@@ -132,6 +133,7 @@ app.use("/api/promotions", promotionRoutes);
 app.use("/api/receipts", receiptRoutes);
 app.use("/api/keys", apiKeyRoutes);
 app.use("/api/self-ordering-settings", selfOrderingSettingsRoutes);
+app.use("/api/guest-customers", guestCustomerRoutes);
 // Test Error Route
 app.get("/error", (req: Request) => {
   throw new Error("Test error!");

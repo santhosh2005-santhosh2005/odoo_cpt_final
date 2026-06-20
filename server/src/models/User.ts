@@ -9,6 +9,8 @@ export interface IUser extends Document {
   passwordHash?: string;
   active: boolean; // to manage active/inactive
   isApproved: boolean; // for admin approval flow
+  resetPasswordOtp?: string;
+  resetPasswordOtpExpiry?: Date;
 }
 
 const userSchema = new Schema<IUser>(
@@ -28,6 +30,8 @@ const userSchema = new Schema<IUser>(
     passwordHash: { type: String },
     active: { type: Boolean, default: true },
     isApproved: { type: Boolean, default: false },
+    resetPasswordOtp: { type: String },
+    resetPasswordOtpExpiry: { type: Date },
   },
   { timestamps: true }
 );

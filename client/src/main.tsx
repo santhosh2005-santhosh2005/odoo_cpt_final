@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import { Provider } from "react-redux";
 import { store } from "./store";
 import { ThemeProvider } from "./components/theme-provider";
+import ForgotPassword from "./pages/ForgotPassword";
 import Dashboard from "./dashboard/Dashboard";
 import DashboardHome from "./dashboard/DashboardHome";
 import RoleProtectedRoute from "./components/RoleProtectedRoute";
@@ -50,7 +51,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/about" element={<About />} />
+              <Route path="/self-order" element={<SelfOrdering />} />
               <Route path="/self-order/:tableNumber" element={<SelfOrdering />} />
               <Route path="/s/:token" element={<SelfOrdering />} />
               <Route path="/customer-display" element={<CustomerDisplay />} />
