@@ -357,10 +357,9 @@ export default function OrderSidebar({ disabled }: OrderSidebarProps) {
       paymentMethod: paymentMethod,
       discountPercent: discountPercent,
       taxRate: settingsTaxRate,
-      paymentStatus: showSuccessScreen ? "paid" : "unpaid",
-      isPaymentStep: selectedPaymentMethod !== null
+      paymentStatus: showSuccessScreen ? "paid" : "unpaid"
     });
-  }, [items, finalTotal, paymentMethod, discountPercent, settingsTaxRate, showSuccessScreen, selectedPaymentMethod]);
+  }, [items, finalTotal, paymentMethod, discountPercent, settingsTaxRate, showSuccessScreen]);
 
   const confirmCheckout = async (shouldPrint: boolean = true) => {
     let receiptWindow: any = null;

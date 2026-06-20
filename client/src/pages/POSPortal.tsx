@@ -12,12 +12,14 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import type { RootState } from "@/store";
+import { setSession } from "@/store/userSlice";
 
 export default function POSPortal() {
   const navigate = useNavigate();
   const user = useSelector((state: RootState) => state.user);
+  const dispatch = useDispatch();
   const { data: activeData, isLoading: activeLoading } = useGetActiveSessionQuery();
   const { data: historyData, isLoading: historyLoading } = useGetSessionsQuery();
   const [openSession] = useOpenSessionMutation();
@@ -61,7 +63,10 @@ export default function POSPortal() {
           
           {activeSession ? (
              <button 
-                onClick={() => navigate("/dashboard/pos/terminal")}
+                onClick={() => {
+                  dispatch(setSession(activeSession._id));
+                  navigate("/dashboard/pos/terminal");
+                }}
                 className="brutalist-button h-20 px-12 flex items-center gap-4 bg-golden-yellow text-deep-black"
              >
                 <CheckCircle2 size={24} /> CONTINUE_ACTIVE_SESSION

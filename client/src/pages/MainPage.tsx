@@ -77,6 +77,7 @@ const GREEN_MID = "#2C4A2C";  // mid green for cards
 export default function MainPage() {
   const navigate = useNavigate();
   const { items } = useSelector((state: RootState) => state.cart);
+  const { sessionId } = useSelector((state: RootState) => state.user);
 
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -93,10 +94,10 @@ export default function MainPage() {
   const activeSession = activeData?.session;
 
   useEffect(() => {
-    if (!activeLoading && !activeSession) {
+    if (!activeLoading && !activeSession && !sessionId) {
       navigate("/dashboard/pos");
     }
-  }, [activeLoading, activeSession, navigate]);
+  }, [activeLoading, activeSession, sessionId, navigate]);
 
   const {
     data: categoriesData = { data: [] },
